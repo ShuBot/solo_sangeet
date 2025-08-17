@@ -9,8 +9,8 @@
 
 #include "st7735_driver.h"
 
-#define TAG "LVGL_DEMO"
-#define LV_TICK_PERIOD_MS 1
+#define TAG "MAIN_APP"
+#define LV_TICK_PERIOD_MS 10
 
 extern spi_device_handle_t st7735_spi;
 /**********************
@@ -343,32 +343,9 @@ void lvgl_task(void *pvParameter)
 {
     while (1) {
         lv_timer_handler();   // LVGL tasks (animations, redraw)
-        vTaskDelay(pdMS_TO_TICKS(10)); // Yield to avoid WDT reset
+        vTaskDelay(pdMS_TO_TICKS(LV_TICK_PERIOD_MS)); // Yield to avoid WDT reset
     }
 }
-
-void update_display() {
-    st7735_send_command(0x2C);
-    for (int i = 0; i < DISP_HOR_RES * DISP_VER_RES; i++) {
-        st7735_send_data(frame_buffer[i] >> 8);
-        st7735_send_data(frame_buffer[i] & 0xFF);
-    }
-}
-
-// void app_main(void) {
-//     spi_config();
-//     st7735_init();
-//     fill_screen_white(); // White in RGB565
-// 	vTaskDelay(500 / portTICK_PERIOD_MS);
-//     fill_screen(COLOR_PINK); // Pink in RGB565 F818
-    
-//     vTaskDelay(500 / portTICK_PERIOD_MS);
-    
-//     for (int i = 0; i < DISPLAY_WIDTH * DISPLAY_HEIGHT; i++) {
-//         frame_buffer[i] = COLOR_GREEN; // Green
-//     }
-//     update_display();
-// }
 
 /**********************
  * Main application
@@ -426,11 +403,5 @@ void app_main(void)
     
     // Create LVGL task
     xTaskCreate(lvgl_task, "lvgl_task", 4096*2, NULL, 1, NULL);
-
-    // Main loop
-    // while (1) {
-    //     // lv_timer_handler();
-    //     vTaskDelay(pdMS_TO_TICKS(10));
-    // }
 
 }
