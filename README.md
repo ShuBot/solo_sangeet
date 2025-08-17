@@ -4,3 +4,4 @@ ESP32 based music player.
 ### useful links:
 - get color hex codes: https://rgbcolorpicker.com/
 - HEX converter: https://www.rapidtables.com/convert/number/decimal-to-hex.html
+- LVGL Library: https://github.com/lvgl/lvgl (Add to "solo_sangeet/components/lvgl")
