@@ -10,7 +10,8 @@
 	"settings": {
 		"files.associations": {
 			"st7735_driver.h": "c",
-			"spi_master.h": "c"
+			"spi_master.h": "c",
+			"cstdlib": "c"
 		}
 	}
 }

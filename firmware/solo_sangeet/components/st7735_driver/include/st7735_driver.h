@@ -28,15 +28,30 @@
 * Marcos for color definitions in RGB565 format
 * These can be used to fill the screen with specific colors
 */
-#define COLOR_BLACK   0x0000
-#define COLOR_WHITE   0xFFFF
-#define COLOR_RED     0xF800
-#define COLOR_GREEN   0x07E0
-#define COLOR_BLUE    0x001F
-#define COLOR_YELLOW  0xFFE0
-#define COLOR_CYAN    0x07FF
-#define COLOR_MAGENTA 0xF81F
-#define COLOR_PINK    0xF818
+#define COLOR_BLACK         0x0000
+#define COLOR_WHITE         0xFFFF
+#define COLOR_GREY          0x007E
+#define COLOR_LIGHT_GREY    0xC618
+#define COLOR_DARK_GREY     0x8410
+#define COLOR_ORANGE        0xFD20
+#define COLOR_BROWN         0xBC40
+#define COLOR_PURPLE        0x780F
+#define COLOR_NAVY          0x0010
+#define COLOR_MAROON        0x8000
+#define COLOR_RED           0xF800
+#define COLOR_GREEN         0x07E0
+#define COLOR_BLUE          0x001F
+#define COLOR_YELLOW        0xFFE0
+#define COLOR_CYAN          0x07FF
+#define COLOR_MAGENTA       0xF81F
+#define COLOR_PINK          0xF818
+
+typedef enum {
+    ST7735_ROTATION_0 = 0,
+    ST7735_ROTATION_90,
+    ST7735_ROTATION_180,
+    ST7735_ROTATION_270
+} st7735_rotation_t;
 
 /*
 * Function definitions for the ST7735 driver
@@ -48,6 +63,7 @@ void st7735_send_command(uint8_t cmd);
 void st7735_send_data(uint8_t data);
 void st7735_send_data_bytes(const uint8_t *data, size_t len);
 void st7735_init();
+esp_err_t st7735_set_rotation(st7735_rotation_t rotation);
 
 void fill_screen_white();
 void fill_screen(uint16_t color);

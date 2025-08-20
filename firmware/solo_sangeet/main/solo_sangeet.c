@@ -288,7 +288,7 @@ void lv_example_img_1(void)
 
     lv_obj_t * img2 = lv_img_create(lv_scr_act());
     lv_img_set_src(img2, LV_SYMBOL_HOME "SHUBHAM");
-    lv_obj_align_to(img2, img1, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
+    lv_obj_align_to(img2, img1, LV_ALIGN_OUT_BOTTOM_MID, 0, -20);
 }
 
 /**********************
@@ -354,6 +354,10 @@ void app_main(void)
 {
     ESP_LOGI(TAG, "Initializing Display SPI Drivers...");
     st7735_init();
+
+    // Rotate the display if needed
+    st7735_set_rotation(ST7735_ROTATION_270);
+
     ESP_LOGI(TAG, "Initializing LVGL...");
     lv_init();
 
@@ -365,41 +369,43 @@ void app_main(void)
     lv_disp_drv_init(&disp_drv);
     disp_drv.hor_res = DISP_HOR_RES;
     disp_drv.ver_res = DISP_VER_RES;
+    disp_drv.rotated = 1; // Set the display rotation if needed
     disp_drv.flush_cb = st7735_flush_cb;  // Your flush function
     disp_drv.draw_buf = &draw_buf;
     lv_disp_drv_register(&disp_drv);
 
+    // Fill background with green
+    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(COLOR_GREY), LV_PART_MAIN);
+    
     // Example for displaying C Array image 
     lv_example_img_1();
 
-    // // Fill background with green
-    // lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x00FF00), LV_PART_MAIN);
-
     // Add a label
     lv_obj_t *label = lv_label_create(lv_scr_act());
-    lv_label_set_text(label, "Hello LVGL!");
+    lv_label_set_recolor(label, true);
+    lv_label_set_text(label, "#ff0000 MUSIC# #a800ff PLAYER#");
     lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 10);
 
-    // Add a button
-    lv_obj_t *btn = lv_btn_create(lv_scr_act());
-    lv_obj_set_size(btn, 80, 40);
-    lv_obj_align(btn, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_t *btn_label = lv_label_create(btn);
-    lv_label_set_text(btn_label, "Click");
-    lv_obj_center(btn_label);
+    // // Add a button
+    // lv_obj_t *btn = lv_btn_create(lv_scr_act());
+    // lv_obj_set_size(btn, 80, 40);
+    // lv_obj_align(btn, LV_ALIGN_CENTER, 0, 0);
+    // lv_obj_t *btn_label = lv_label_create(btn);
+    // lv_label_set_text(btn_label, "Click");
+    // lv_obj_center(btn_label);
 
-    // Add a rectangle
-    lv_obj_t *rect = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(rect, 50, 30);
-    lv_obj_set_style_bg_color(rect, lv_color_hex(0xFF0000), LV_PART_MAIN);
-    lv_obj_align(rect, LV_ALIGN_BOTTOM_LEFT, 10, -10);
+    // // Add a rectangle
+    // lv_obj_t *rect = lv_obj_create(lv_scr_act());
+    // lv_obj_set_size(rect, 50, 30);
+    // lv_obj_set_style_bg_color(rect, lv_color_hex(0xFF0000), LV_PART_MAIN);
+    // lv_obj_align(rect, LV_ALIGN_BOTTOM_LEFT, 10, -10);
 
-    // Add a circle
-    lv_obj_t *circle = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(circle, 40, 40);
-    lv_obj_set_style_bg_color(circle, lv_color_hex(0x0000FF), LV_PART_MAIN);
-    lv_obj_set_style_radius(circle, LV_RADIUS_CIRCLE, LV_PART_MAIN);
-    lv_obj_align(circle, LV_ALIGN_BOTTOM_RIGHT, -10, -10);
+    // // Add a circle
+    // lv_obj_t *circle = lv_obj_create(lv_scr_act());
+    // lv_obj_set_size(circle, 40, 40);
+    // lv_obj_set_style_bg_color(circle, lv_color_hex(0x0000FF), LV_PART_MAIN);
+    // lv_obj_set_style_radius(circle, LV_RADIUS_CIRCLE, LV_PART_MAIN);
+    // lv_obj_align(circle, LV_ALIGN_BOTTOM_RIGHT, -10, -10);
     
     // Create LVGL task
     xTaskCreate(lvgl_task, "lvgl_task", 4096*2, NULL, 1, NULL);

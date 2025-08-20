@@ -89,7 +89,36 @@ void st7735_init() {
     st7735_send_command(0x3A); // Set color mode
     st7735_send_data(0x05);    // 16-bit RGB565
 
+    // Set default rotation
+    st7735_set_rotation(ST7735_ROTATION_0);
+
     st7735_send_command(0x29); // Display on
+}
+
+esp_err_t st7735_set_rotation(st7735_rotation_t rotation) {
+    
+    uint8_t madctl;
+
+    switch (rotation) {
+        case ST7735_ROTATION_0:
+            madctl = 0x00; // MY=0, MX=0, MV=0
+            break;
+        case ST7735_ROTATION_90:
+            madctl = 0x60; // MY=0, MX=1, MV=1
+            break;
+        case ST7735_ROTATION_180:
+            madctl = 0xC0; // MY=1, MX=1, MV=0
+            break;
+        case ST7735_ROTATION_270:
+            madctl = 0xA0; // MY=1, MX=0, MV=1
+            break;
+        default:
+            return ESP_ERR_INVALID_ARG;
+    }
+
+    st7735_send_command(0x36); // MADCTL
+    st7735_send_data(madctl);
+    return ESP_OK;
 }
 
 void fill_screen(uint16_t color) {
