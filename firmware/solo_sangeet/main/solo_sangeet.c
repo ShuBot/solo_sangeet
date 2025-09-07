@@ -455,6 +455,12 @@ void lv_example_img_2(void)
 /**********************
  * Display driver function to send pixels data
  **********************/
+static inline uint16_t st7735_color_swap(lv_color_t c)
+{
+    uint16_t v = c.full;
+    return (v >> 8) | (v << 8);  // swap MSB and LSB
+}
+
 void st7735_flush_cb_spi_buffer(int x1, int y1, int x2, int y2, lv_color_t *color_map)
 {
     #define SPI_MAX_PIXELS_AT_ONCE 1024   // ~2 KB chunk
@@ -464,6 +470,9 @@ void st7735_flush_cb_spi_buffer(int x1, int y1, int x2, int y2, lv_color_t *colo
 
     // Send pixel data (RGB565 format)
     int total_pixels = (x2 - x1 + 1) * (y2 - y1 + 1);
+    // Temporary buffer for swapped colors
+    static uint16_t tx_buf[SPI_MAX_PIXELS_AT_ONCE];
+
     int32_t sent = 0;
     while (sent < total_pixels) {
         int32_t chunk_pixels = total_pixels - sent;
@@ -471,31 +480,15 @@ void st7735_flush_cb_spi_buffer(int x1, int y1, int x2, int y2, lv_color_t *colo
             chunk_pixels = SPI_MAX_PIXELS_AT_ONCE;
         }
 
-        st7735_send_data_bytes((uint16_t *)&color_map[sent], chunk_pixels);
+        // Swap colors into tx_buf
+        for (int i = 0; i < chunk_pixels; i++) {
+            tx_buf[i] = st7735_color_swap(color_map[sent + i]);
+        }
+
+        st7735_send_data_bytes(tx_buf, chunk_pixels);
 
         sent += chunk_pixels;
     }
-    // for (int i = 0; i < total_pixels; i++) {
-      // lv_color_t color = color_map[i];
-    //     uint16_t color16 = color.full;  // Extract the raw 16-bit RGB565 value
-    //     st7735_send_data(color16 >> 8); // High byte
-    //     st7735_send_data(color16 & 0xFF); // Low byte
-    // }
-
-    // Small buffer with repeated color
-    // uint16_t buf[CHUNK_PIXELS];
-    // for (int i = 0; i < CHUNK_PIXELS; i++) {
-    //     // buf[i] = color;
-    //     buf[i] = swap_u16(color_map[i].full); // Swap byte order for SPI
-    // }
-    
-    // Send in chunks
-    // while(total_pixels > 0)
-    // {
-    //     int chunk = (total_pixels > CHUNK_PIXELS) ? CHUNK_PIXELS : total_pixels;
-    //     st7735_send_data_bytes(buf, chunk);
-    //     total_pixels -= chunk;
-    // }
 }
 
 void st7735_flush_cb_spi_byte_by_byte(int x1, int y1, int x2, int y2, lv_color_t *color_map)
@@ -587,7 +580,7 @@ void app_main(void)
     lv_disp_drv_register(&disp_drv);
 
     // Fill background with green
-    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex3(COLOR_GREEN), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex3(COLOR_BLACK), LV_PART_MAIN);
     
     // Example for displaying C Array image 
     // lv_example_img_1();
