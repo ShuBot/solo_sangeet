@@ -55,12 +55,13 @@ void st7735_send_data(uint8_t data) {
     assert(ret == ESP_OK);
 }
 
-void st7735_send_data_bytes(const uint8_t *data, size_t len)
+void st7735_send_data_bytes(uint16_t *data, size_t len)
 {
     gpio_set_level(ST7735_PIN_DC, 1); // Data mode
     spi_transaction_t t = {
-        .length = len * 8,  // bits
-        .tx_buffer = data
+        .length = len * 16,  // len = pixel count, 16 bits per pixel
+        .tx_buffer = data,
+        .flags = 0
     };
     spi_device_transmit(st7735_spi, &t);
 }
@@ -117,36 +118,59 @@ esp_err_t st7735_set_rotation(st7735_rotation_t rotation) {
     return ESP_OK;
 }
 
+uint16_t swap_u16(uint16_t v) {
+    return (v >> 8) | (v << 8);
+}
+
+void st7735_set_address_window(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1)
+{
+    // Column addr set
+    gpio_set_level(ST7735_PIN_DC, 0);
+    st7735_send_command(ST7735_CASET);  
+    gpio_set_level(ST7735_PIN_DC, 1);
+    st7735_send_data(x0 >> 8);
+    st7735_send_data(x0 & 0xFF);
+    st7735_send_data(x1 >> 8);
+    st7735_send_data(x1 & 0xFF);
+    
+    // Row addr set
+    gpio_set_level(ST7735_PIN_DC, 0);
+    st7735_send_command(ST7735_RASET);  
+    gpio_set_level(ST7735_PIN_DC, 1);
+    st7735_send_data(y0 >> 8);
+    st7735_send_data(y0 & 0xFF);
+    st7735_send_data(y1 >> 8);
+    st7735_send_data(y1 & 0xFF);
+
+    // Write to RAM
+    gpio_set_level(ST7735_PIN_DC, 0);
+    st7735_send_command(ST7735_RAMWR);
+}
+
 void st7735_fill_screen(uint16_t color) {
-    st7735_send_command(0x2A); // Column address set
-    st7735_send_data(0x00); st7735_send_data(0x00); // Start: 0
-    st7735_send_data(0x00); st7735_send_data(0x9F); // End: 127 (128 pixels wide) 0x7F
+    // Set window 160 x 128 for landscape mode
+    st7735_set_address_window(0, 0, ST7735_DISP_VER_RES - 1, ST7735_DISP_HOR_RES - 1);
 
-    st7735_send_command(0x2B); // Row address set
-    st7735_send_data(0x00); st7735_send_data(0x00); // Start: 0
-    st7735_send_data(0x00); st7735_send_data(0x7F); // End: 159 (160 pixels tall) 0x9F
+    int pixels = ST7735_DISP_HOR_RES * ST7735_DISP_VER_RES;
+    const int CHUNK_PIXELS = 512;  // 1 KB chunk
 
-    st7735_send_command(0x2C); // Memory write
-    for (int i = 0; i < ST7735_DISP_HOR_RES * ST7735_DISP_VER_RES; i++) {
-        st7735_send_data(color >> 8);   // High byte
-        st7735_send_data(color & 0xFF); // Low byte
+    // Small buffer with repeated color
+    uint16_t buf[CHUNK_PIXELS];
+    for (int i = 0; i < CHUNK_PIXELS; i++) {
+        // buf[i] = color;
+        buf[i] = swap_u16(color);
+    }
+    
+    // Send in chunks
+    while(pixels > 0)
+    {
+        int chunk = (pixels > CHUNK_PIXELS) ? CHUNK_PIXELS : pixels;
+        st7735_send_data_bytes(buf, chunk);
+        pixels -= chunk;
     }
 }
 
 void st7735_fill_screen_white() {
     uint16_t color = 0xFFFF;
-
-    st7735_send_command(0x2A); // Column address set
-    st7735_send_data(0x00); st7735_send_data(0x00); // Start: 0
-    st7735_send_data(0x00); st7735_send_data(0x7F); // End: 127 (128 pixels wide) 0x7F
-
-    st7735_send_command(0x2B); // Row address set
-    st7735_send_data(0x00); st7735_send_data(0x00); // Start: 0
-    st7735_send_data(0x00); st7735_send_data(0x9F); // End: 159 (160 pixels tall) 0x9F
-
-    st7735_send_command(0x2C); // Memory write
-    for (int i = 0; i < ST7735_DISP_HOR_RES * ST7735_DISP_VER_RES; i++) {
-        st7735_send_data(color >> 8);   // High byte
-        st7735_send_data(color & 0xFF); // Low byte
-    }
+    st7735_fill_screen(color);
 }

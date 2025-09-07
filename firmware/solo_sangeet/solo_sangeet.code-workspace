@@ -11,7 +11,11 @@
 		"files.associations": {
 			"st7735_driver.h": "c",
 			"spi_master.h": "c",
-			"cstdlib": "c"
+			"cstdlib": "c",
+			"ili9488_driver.h": "c",
+			"gpio.h": "c",
+			"esp_timer.h": "c",
+			"bit": "c"
 		}
 	}
 }

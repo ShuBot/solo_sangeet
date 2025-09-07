@@ -8,12 +8,12 @@
 * Pin definitions for the ST7735 display
 * Adjust these according to your hardware setup
 */
-#define ST7735_PIN_MISO -1      // Not used, display does not send data back
-#define ST7735_PIN_SCLK 14     // VSPI - 18  HSPI - 14
-#define ST7735_PIN_MOSI 13     // VSPI - 23  HSPI - 13
 #define ST7735_PIN_CS   15     // VSPI - 5   HSPI - 15
-#define ST7735_PIN_DC   27     // VSPI - 2   HSPI - 27
 #define ST7735_PIN_RST  26     // VSPI - 4   HSPI - 26
+#define ST7735_PIN_DC   27     // VSPI - 2   HSPI - 27
+#define ST7735_PIN_MOSI 13     // VSPI - 23  HSPI - 13
+#define ST7735_PIN_SCLK 14     // VSPI - 18  HSPI - 14
+#define ST7735_PIN_MISO -1      // Not used, display does not send data back
 
 /*
 * Display dimensions
@@ -23,6 +23,14 @@
 #define ST7735_DISP_VER_RES         160
 #define ST7735_DISPLAY_SIZE         (ST7735_DISP_HOR_RES * ST7735_DISP_VER_RES)
 #define ST7735_DISPLAY_BUFFER_SIZE  (ST7735_DISPLAY_SIZE * sizeof(uint16_t))
+
+/*
+* ST7735 command definitions
+* These are used to control various functions of the display
+*/
+#define ST7735_CASET  0x2A  // Column Address Set
+#define ST7735_RASET  0x2B  // Row Address Set
+#define ST7735_RAMWR  0x2C  // Memory Write
 
 /*
 * Marcos for color definitions in RGB565 format
@@ -61,11 +69,13 @@ typedef enum {
 void st7735_spi_config();
 void st7735_send_command(uint8_t cmd);
 void st7735_send_data(uint8_t data);
-void st7735_send_data_bytes(const uint8_t *data, size_t len);
+void st7735_send_data_bytes(uint16_t *data, size_t len);
 void st7735_init();
 esp_err_t st7735_set_rotation(st7735_rotation_t rotation);
+void st7735_set_address_window(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1);
 
-void st7735_fill_screen_white();
+uint16_t swap_u16(uint16_t v);
 void st7735_fill_screen(uint16_t color);
+void st7735_fill_screen_white();
 
 #endif // ST7735_DRIVER_H
