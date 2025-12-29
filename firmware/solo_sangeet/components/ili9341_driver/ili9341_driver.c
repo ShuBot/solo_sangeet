@@ -1,9 +1,21 @@
 #include "ili9341_driver.h"
 #include <stdio.h>
 
-#define ILI9341_FILL_CHUNK_PIXELS 1024  // Number of pixels per chunk when filling the screen
+#define ILI9341_DMA_FILL_PIXELS 2048  // 2048 pixels = 4096 bytes
+
+static uint16_t *dma_fill_buf = NULL;
 
 spi_device_handle_t ili9341_spi;
+
+void ili9341_alloc_dma_buffers(void)
+{
+    dma_fill_buf = heap_caps_malloc(
+        ILI9341_DMA_FILL_PIXELS * sizeof(uint16_t),
+        MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL
+    );
+
+    assert(dma_fill_buf != NULL);
+}
 
 void ili9341_spi_config() {
     spi_bus_config_t buscfg = {
@@ -19,7 +31,8 @@ void ili9341_spi_config() {
         .clock_speed_hz = 15999999,         //SPI_FREQUENCY,    // 15.99 MHz
         .mode = 0,                          // SPI mode 0
         .spics_io_num = ILI9341_PIN_CS,
-        .queue_size = 7
+        .queue_size = 7,
+        .flags = SPI_DEVICE_HALFDUPLEX,
     };
 
     // Initialize SPI bus
@@ -188,6 +201,8 @@ void ili9341_init() {
     // Trun On the display Backlight
     gpio_set_level(ILI9341_PIN_BL, 1);
     vTaskDelay(10 / portTICK_PERIOD_MS);
+
+    ili9341_alloc_dma_buffers();
 }
 
 esp_err_t ili9341_set_rotation(ili9341_rotation_t rotation)
@@ -243,7 +258,7 @@ void ili9341_set_address_window(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t 
     ili9341_send_command(ILI9341_RAMWR);
 }
 
-uint16_t ili9341_color_swap(uint16_t v)
+static inline uint16_t ili9341_color_swap(uint16_t v)
 {
     return (v >> 8) | (v << 8);  // swap MSB and LSB
 }
@@ -272,30 +287,86 @@ void ili9341_fill_screen(ili9341_rotation_t rotation, uint16_t color) {
 
     // Send pixel data (RGB565 format)
     int total_pixels = (ILI9341_DISP_HOR_RES) * (ILI9341_DISP_VER_RES);
-    // Temporary buffer for swapped colors
-    static uint16_t tx_buf[ILI9341_FILL_CHUNK_PIXELS];
+    
+    // Use DMA buffer for filling
+    uint16_t out_color = ili9341_color_swap(color);
 
-    int32_t sent = 0;
-    while (sent < total_pixels) {
-        int32_t chunk_pixels = total_pixels - sent;
-        if (chunk_pixels > ILI9341_FILL_CHUNK_PIXELS) {
-            chunk_pixels = ILI9341_FILL_CHUNK_PIXELS;
-        }
+    // Fill DMA buffer once
+    for (int i = 0; i < ILI9341_DMA_FILL_PIXELS; i++) {
+        dma_fill_buf[i] = out_color;
+    }
 
-        // Swap colors into tx_buf
-        for (int i = 0; i < chunk_pixels; i++) {
-            tx_buf[i] = ili9341_color_swap(color);
-        }
+    spi_transaction_t t = { 0 };
 
-        ili9341_send_data_bytes(tx_buf, chunk_pixels);
+    while (total_pixels > 0) {
 
-        sent += chunk_pixels;
+        uint32_t chunk_pixels =
+            (total_pixels > ILI9341_DMA_FILL_PIXELS)
+            ? ILI9341_DMA_FILL_PIXELS
+            : total_pixels;
+
+        t.tx_buffer = dma_fill_buf;
+        t.length    = chunk_pixels * 16;  // bits!
+        t.user      = NULL;
+
+        // DC = data
+        gpio_set_level(ILI9341_PIN_DC, 1);
+
+        esp_err_t ret = spi_device_transmit(ili9341_spi, &t);
+        assert(ret == ESP_OK);
+
+        total_pixels -= chunk_pixels;
     }
 }
 
 void ili9341_fill_screen_white(ili9341_rotation_t rotation) {
     uint16_t color = 0xFFFF;
     ili9341_fill_screen(rotation, color);
+}
+
+void ili9341_fill_rect_dma(ili9341_rotation_t rotation, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color)
+{
+    // Bounds check (critical for LVGL later)
+    if (x >= ILI9341_DISP_HOR_RES ||
+        y >= ILI9341_DISP_VER_RES)
+        return;
+
+    if (x + w > ILI9341_DISP_HOR_RES)
+        w = ILI9341_DISP_HOR_RES - x;
+
+    if (y + h > ILI9341_DISP_VER_RES)
+        h = ILI9341_DISP_VER_RES - y;
+
+    uint32_t total_pixels = w * h;
+    uint16_t out_color = (color >> 8) | (color << 8); // SPI endian
+
+    // Fill DMA buffer once
+    for (int i = 0; i < ILI9341_DMA_FILL_PIXELS; i++) {
+        dma_fill_buf[i] = out_color;
+    }
+
+    // Set drawing window
+    ili9341_set_address_window(x, y, x + w - 1, y + h - 1);
+
+    spi_transaction_t t = {0};
+
+    while (total_pixels > 0) {
+
+        uint32_t chunk =(total_pixels > ILI9341_DMA_FILL_PIXELS)
+                            ? ILI9341_DMA_FILL_PIXELS
+                            : total_pixels;
+
+        t.tx_buffer = dma_fill_buf;
+        t.length    = chunk * 16;  // bits
+        t.user      = NULL;
+
+        gpio_set_level(ILI9341_PIN_DC, 1); // data
+
+        esp_err_t ret = spi_device_transmit(ili9341_spi, &t);
+        assert(ret == ESP_OK);
+
+        total_pixels -= chunk;
+    }
 }
 
 /****************************************************************************************

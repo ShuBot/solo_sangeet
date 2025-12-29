@@ -235,22 +235,32 @@ void app_main(void)
 
     // Test Colors with solid fills
     ESP_LOGI(TAG, "Testing Display with Solid Color Fills...");
-/*
     ili9341_fill_screen(display_rotation,COLOR_BLACK);
     vTaskDelay(pdMS_TO_TICKS(500)); // Wait for the display to stabilize
+    
+    /*
+    // Draw rectangles
+    ili9341_fill_rect_dma(display_rotation, 20, 20, 100, 60, 0xF800); // red
+    vTaskDelay(pdMS_TO_TICKS(300));
 
+    ili9341_fill_rect_dma(display_rotation, 60, 80, 120, 80, 0x07E0); // green
+    vTaskDelay(pdMS_TO_TICKS(300));
+
+    ili9341_fill_rect_dma(display_rotation, 10, 200, 200, 30, 0x001F); // blue
+    vTaskDelay(pdMS_TO_TICKS(300));
+    
     ili9341_fill_screen(display_rotation, COLOR_RED);
     vTaskDelay(pdMS_TO_TICKS(500)); // Wait for the display to stabilize
 
     ili9341_fill_screen(display_rotation, COLOR_GREEN);
     vTaskDelay(pdMS_TO_TICKS(500)); // Wait for the display to stabilize
-
-    ili9341_fill_screen(display_rotation, 0x001F);
+    
+    ili9341_fill_screen(display_rotation, COLOR_BLUE);
     vTaskDelay(pdMS_TO_TICKS(500)); // Wait for the display to stabilize
-
+    
     ili9341_fill_screen_white(display_rotation);
     vTaskDelay(pdMS_TO_TICKS(500)); // Wait for the display to stabilize
-*/
+    */
 
     // Start LVGL
     ESP_LOGI(TAG, "Initializing LVGL...");
@@ -268,9 +278,8 @@ void app_main(void)
     lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex3(0x65fb), LV_PART_MAIN);
     
     // Example for displaying C Array image 
-    lv_example_label_1();
-    // lv_example_img_1();
-    // lv_example_img_2();
+    // lv_example_label_1();
+    lv_example_img_1();
     
     // Start LVGL task
     xTaskCreatePinnedToCore(lvgl_task, "lvgl_task", 1024 * 16, NULL, 1, NULL, 1);
