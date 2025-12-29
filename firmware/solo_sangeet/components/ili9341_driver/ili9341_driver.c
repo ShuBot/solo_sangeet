@@ -1,5 +1,6 @@
 #include "ili9341_driver.h"
 #include <stdio.h>
+#include <string.h>
 
 #define ILI9341_DMA_FILL_PIXELS 2048  // 2048 pixels = 4096 bytes
 
@@ -28,10 +29,10 @@ void ili9341_spi_config() {
     };
 
     spi_device_interface_config_t devcfg = {
-        .clock_speed_hz = 15999999,         //SPI_FREQUENCY,    // 15.99 MHz
+        .clock_speed_hz = SPI_FREQUENCY,    // 40 / 15.99 MHz
         .mode = 0,                          // SPI mode 0
         .spics_io_num = ILI9341_PIN_CS,
-        .queue_size = 7,
+        .queue_size = 1,
         .flags = SPI_DEVICE_HALFDUPLEX,
     };
 
@@ -403,3 +404,28 @@ void ili9341_flush_spi(int x1, int y1, int x2, int y2, uint8_t * px_map)
         sent += chunk_pixels;
     }
 }
+
+void ili9341_flush_spi_dma(int x1, int y1, int x2, int y2, uint8_t * px_map)
+{
+    int32_t w = x2 - x1 + 1;
+    int32_t h = y2 - y1 + 1;
+    
+    // as its a 16 bit (RGB565) display
+    uint16_t * buf16 = (uint16_t *)px_map;
+
+    ili9341_set_address_window(x1, y1, x2, y2);
+    
+    spi_transaction_t t = {0};
+    memset(&t, 0, sizeof(t));
+
+    t.length    = w * h * 2 * 8;   // RGB565 bits
+    t.tx_buffer = buf16;
+    t.user      = NULL;
+
+    // DC = data
+    gpio_set_level(ILI9341_PIN_DC, 1);
+
+    esp_err_t ret = spi_device_transmit(ili9341_spi, &t);
+    assert(ret == ESP_OK);
+
+}   

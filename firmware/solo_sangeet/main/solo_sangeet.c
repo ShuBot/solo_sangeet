@@ -11,6 +11,7 @@
 
 #define TAG                     "MAIN_APP"
 #define LV_TICK_PERIOD_MS       10
+
 lv_display_rotation_t display_rotation = LV_DISPLAY_ROTATION_180;
 
 /*
@@ -172,12 +173,12 @@ void lv_example_img_1(void)
     LV_IMG_DECLARE(bg_cat_img);
     lv_obj_t * img3 = lv_img_create(lv_screen_active());
     lv_img_set_src(img3, &bg_cat_img);
-    lv_obj_align(img3, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_align(img3, LV_ALIGN_BOTTOM_MID, 0, 0);
     // lv_obj_set_size(img3, 150, 69);
 
     lv_obj_t * img4 = lv_img_create(lv_screen_active());
     lv_img_set_src(img4, LV_SYMBOL_HOME "SoloSangeet");
-    lv_obj_align_to(img4, img3, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
+    lv_obj_align_to(img4, img3, LV_ALIGN_OUT_TOP_MID, 0, 0);
 }
 
 void lv_example_label_1(void)
@@ -203,7 +204,8 @@ void lv_example_label_1(void)
  **********************/
 static void ili9341_flush_cb(lv_display_t * display, const lv_area_t * area, uint8_t * px_map)
 {
-    ili9341_flush_spi(area->x1, area->y1, area->x2, area->y2, px_map);
+    // ili9341_flush_spi(area->x1, area->y1, area->x2, area->y2, px_map);
+    ili9341_flush_spi_dma(area->x1, area->y1, area->x2, area->y2, px_map);
     //Inform LVGL that flushing is complete so buffer can be modified again.
     lv_display_flush_ready(display);
 }
@@ -267,18 +269,33 @@ void app_main(void)
     lv_init();
     
     // Display buffer
-    static  lv_color_t buf1[ILI9341_DISPLAY_BUFFER_SIZE];
+    static lv_color_t * draw_buf1;
+    static lv_color_t * draw_buf2;
+
+    draw_buf1 = heap_caps_malloc(ILI9341_DISPLAY_BUFFER_SIZE * sizeof(lv_color_t),
+        MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL
+    );
+    draw_buf2 = heap_caps_malloc(ILI9341_DISPLAY_BUFFER_SIZE * sizeof(lv_color_t),
+        MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL
+    );
+
+    // For development, we can use assert to ensure memory allocation was successful
+    assert(draw_buf1);
+    assert(draw_buf2);
+
     // Register the display driver with LVGL
-    lv_display_t * disp_drv = lv_display_create(ILI9341_DISP_HOR_RES, ILI9341_DISP_VER_RES);
-    lv_display_set_rotation(disp_drv, display_rotation); // Adjust rotation as needed
-    lv_display_set_buffers(disp_drv, buf1, NULL, sizeof(buf1), LV_DISPLAY_RENDER_MODE_PARTIAL);
-    lv_display_set_flush_cb(disp_drv, ili9341_flush_cb);
+    lv_display_t * active_disp = lv_display_create(ILI9341_DISP_HOR_RES, ILI9341_DISP_VER_RES);
+    assert(active_disp != NULL);
+    lv_display_set_rotation(active_disp, display_rotation); // Adjust rotation as needed
+    // lv_display_set_buffers(active_disp, buf1, NULL, sizeof(buf1), LV_DISPLAY_RENDER_MODE_PARTIAL);
+    lv_display_set_buffers(active_disp, draw_buf1, draw_buf2, ILI9341_DISPLAY_BUFFER_SIZE, LV_DISPLAY_RENDER_MODE_PARTIAL);
+    lv_display_set_flush_cb(active_disp, ili9341_flush_cb);
     
     // Fill background with BLACK
-    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex3(0x65fb), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex3(COLOR_CYAN), LV_PART_MAIN);
     
     // Example for displaying C Array image 
-    // lv_example_label_1();
+    lv_example_label_1();
     lv_example_img_1();
     
     // Start LVGL task
