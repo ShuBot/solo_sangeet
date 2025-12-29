@@ -1,6 +1,9 @@
 #include "ili9341_driver.h"
+#include "xpt2046_touch_driver.h"
 #include <stdio.h>
 #include <string.h>
+
+#define MAIN_SPI_HOST SPI2_HOST
 
 #define ILI9341_DMA_FILL_PIXELS 2048  // 2048 pixels = 4096 bytes
 
@@ -28,6 +31,7 @@ void ili9341_spi_config() {
         .max_transfer_sz = 4096
     };
 
+    // LCD Display SPI device configuration
     spi_device_interface_config_t devcfg = {
         .clock_speed_hz = SPI_FREQUENCY,    // 40 / 15.99 MHz
         .mode = 0,                          // SPI mode 0
@@ -35,19 +39,22 @@ void ili9341_spi_config() {
         .queue_size = 1,
         .flags = SPI_DEVICE_HALFDUPLEX,
     };
-
+    
     // Initialize SPI bus
-    esp_err_t ret = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO);
+    esp_err_t ret = spi_bus_initialize(MAIN_SPI_HOST, &buscfg, SPI_DMA_CH_AUTO);
     assert(ret == ESP_OK);
 
     // Add device to bus
-    ret = spi_bus_add_device(SPI2_HOST, &devcfg, &ili9341_spi);
+    ret = spi_bus_add_device(MAIN_SPI_HOST, &devcfg, &ili9341_spi);
     assert(ret == ESP_OK);
 
     // Set up DC and RST as GPIO
     gpio_set_direction(ILI9341_PIN_DC, GPIO_MODE_OUTPUT);
     // Set up BackLight LED Control GPIO
     gpio_set_direction(ILI9341_PIN_BL, GPIO_MODE_OUTPUT);
+
+    // Touch Screen SPI device configuration
+    xpt2046_init(MAIN_SPI_HOST);
 }
 
 void ili9341_send_command(uint8_t cmd) {
@@ -81,6 +88,13 @@ void ili9341_send_data_bytes(uint16_t *data, size_t len)
         .flags = 0
     };
     spi_device_transmit(ili9341_spi, &t);
+}
+
+void ili9341_set_display_backlight(bool state)
+{
+    // Trun On/Off the display Backlight
+    gpio_set_level(ILI9341_PIN_BL, state ? 1 : 0);
+    vTaskDelay(10 / portTICK_PERIOD_MS);
 }
 
 void ili9341_init() {
@@ -200,8 +214,7 @@ void ili9341_init() {
     ili9341_send_command(ILI9341_DISPON);
     
     // Trun On the display Backlight
-    gpio_set_level(ILI9341_PIN_BL, 1);
-    vTaskDelay(10 / portTICK_PERIOD_MS);
+    ili9341_set_display_backlight(true);
 
     ili9341_alloc_dma_buffers();
 }

@@ -10,7 +10,7 @@ extern spi_device_handle_t ili9341_spi;
 * Pin definitions for the ST7735 display
 * Adjust these according to your hardware setup
 */
-#define ILI9341_PIN_MISO -1     // Not used, display does not send data back
+#define ILI9341_PIN_MISO 12     // Not used, display does not send data back
 #define ILI9341_PIN_MOSI 13     // VSPI - 23  HSPI - 13
 #define ILI9341_PIN_SCLK 14     // VSPI - 18  HSPI - 14
 #define ILI9341_PIN_CS   15     // VSPI - 5   HSPI - 15
@@ -200,6 +200,7 @@ void ili9341_send_command(uint8_t cmd);
 void ili9341_send_data(uint8_t data);
 void ili9341_send_data_bytes(uint16_t *data, size_t len);
 void ili9341_init();
+void ili9341_set_display_backlight(bool state);
 esp_err_t ili9341_set_rotation(ili9341_rotation_t rotation);
 void ili9341_set_address_window(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);
 

@@ -8,6 +8,7 @@
 #include "esp_log.h"
 
 #include "ili9341_driver.h"
+#include "xpt2046_touch_driver.h"
 
 #define TAG                     "MAIN_APP"
 #define LV_TICK_PERIOD_MS       10
@@ -210,6 +211,26 @@ static void ili9341_flush_cb(lv_display_t * display, const lv_area_t * area, uin
     lv_display_flush_ready(display);
 }
 
+static void xpt2046_touchpad_read_cb(lv_indev_t * indev, lv_indev_data_t * data)
+{
+    uint16_t touchpad_x, touchpad_y;
+    if(xpt2046_read_raw(&touchpad_x, &touchpad_y)) {
+        data->state = LV_INDEV_STATE_PRESSED;
+        data->point.x = (touchpad_x * 240) / 4096;
+        data->point.y = (touchpad_y * 320) / 4096;
+        ESP_LOGI(TAG, "RAW X=%u  Y=%u State: PRESSED", touchpad_x, touchpad_y);
+    } else {
+        data->state = LV_INDEV_STATE_RELEASED;
+    }
+
+    static uint32_t cnt = 0;
+    cnt++;
+    if (cnt % 50 == 0) {
+        ESP_LOGI("LVGL", "Touch CB called");
+    }
+
+}
+
 /********************************************
  * LVGL Task to Updte/Refresh the display
  ********************************************/
@@ -218,8 +239,44 @@ void lvgl_task(void *pvParameter)
     ESP_LOGI(TAG, "Starting LVGL Task...");
     
     while (1) {
+        // lv_task_handler();   // LVGL tasks (animations, redraw) 
+        lv_timer_handler();
         vTaskDelay(pdMS_TO_TICKS(LV_TICK_PERIOD_MS)); // Yield to avoid WDT reset
-        lv_task_handler();   // LVGL tasks (animations, redraw) 
+    }
+}
+
+/********************************************
+ * LVGL Tick Initialization
+ ********************************************/
+static void lv_tick_cb(void *arg)
+{
+    lv_tick_inc(1);  // 1 ms tick
+}
+
+void lvgl_tick_init(void)
+{
+    const esp_timer_create_args_t tick_args = {
+        .callback = &lv_tick_cb,
+        .name = "lvgl_tick"
+    };
+
+    esp_timer_handle_t tick_timer;
+    ESP_ERROR_CHECK(esp_timer_create(&tick_args, &tick_timer));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(tick_timer, 1000)); // 1 ms
+}
+
+// Test Task for Touch controller
+void xpt2046_test_task(void *arg)
+{
+    uint16_t x, y;
+    ESP_LOGI(TAG, "XPT2046 initialized, Starting touch test...");
+
+    while (1) {
+        if (xpt2046_read_raw(&x, &y)) {
+            ESP_LOGI("TOUCH     ", "RAW X=%u  Y=%u", x, y);
+            ESP_LOGI("TOUCH DISP", "RAW X=%u  Y=%u", (x * 240 / 4096), (y * 320 / 4096));
+        }
+        vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
 
@@ -267,6 +324,7 @@ void app_main(void)
     // Start LVGL
     ESP_LOGI(TAG, "Initializing LVGL...");
     lv_init();
+    lvgl_tick_init();
     
     // Display buffer
     static lv_color_t * draw_buf1;
@@ -291,6 +349,13 @@ void app_main(void)
     lv_display_set_buffers(active_disp, draw_buf1, draw_buf2, ILI9341_DISPLAY_BUFFER_SIZE, LV_DISPLAY_RENDER_MODE_PARTIAL);
     lv_display_set_flush_cb(active_disp, ili9341_flush_cb);
     
+    // Setup input device (touchpad)
+    lv_indev_t * active_indev = lv_indev_create();
+    assert(active_indev != NULL);
+    lv_indev_set_type(active_indev, LV_INDEV_TYPE_POINTER);         // Touch pad is a pointer-like device.
+    lv_indev_set_read_cb(active_indev, xpt2046_touchpad_read_cb);   // Set driver function.
+    lv_indev_set_display(active_indev, active_disp);
+
     // Fill background with BLACK
     lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex3(COLOR_CYAN), LV_PART_MAIN);
     
@@ -299,6 +364,8 @@ void app_main(void)
     lv_example_img_1();
     
     // Start LVGL task
-    xTaskCreatePinnedToCore(lvgl_task, "lvgl_task", 1024 * 16, NULL, 1, NULL, 1);
-
+    xTaskCreatePinnedToCore(lvgl_task, "lvgl_task", 1024 * 16, NULL, configMAX_PRIORITIES - 1 , NULL, 1);
+    
+    // Start Touch test task
+    // xTaskCreate(xpt2046_test_task, "touch_test", 2048, NULL, 5, NULL);
 }
