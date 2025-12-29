@@ -11,6 +11,7 @@
 
 #define TAG                     "MAIN_APP"
 #define LV_TICK_PERIOD_MS       10
+lv_display_rotation_t display_rotation = LV_DISPLAY_ROTATION_180;
 
 /*
 * Image for example test
@@ -198,62 +199,18 @@ void lv_example_label_1(void)
 }
 
 /**********************
- * Display driver function to send pixels data
- **********************/
-static inline uint16_t ili9341_color_swap(uint16_t v)
-{
-    return (v >> 8) | (v << 8);  // swap MSB and LSB
-}
-
-void ili9341_flush_spi(int x1, int y1, int x2, int y2, uint8_t * px_map)
-{
-    #define SPI_MAX_PIXELS_AT_ONCE 1024   // ~2 KB chunk
-    
-    uint16_t * buf16 = (uint16_t *)px_map; // Let's say it's a 16 bit (RGB565) display
-
-    // Set window 160 x 128 for landscape mode
-    ili9341_set_address_window(x1, y1, x2, y2);
-
-    // Send pixel data (RGB565 format)
-    int total_pixels = (x2 - x1 + 1) * (y2 - y1 + 1);
-    // Temporary buffer for swapped colors
-    static uint16_t tx_buf[SPI_MAX_PIXELS_AT_ONCE];
-
-    int32_t sent = 0;
-    while (sent < total_pixels) {
-        int32_t chunk_pixels = total_pixels - sent;
-        if (chunk_pixels > SPI_MAX_PIXELS_AT_ONCE) {
-            chunk_pixels = SPI_MAX_PIXELS_AT_ONCE;
-        }
-
-        // Swap colors into tx_buf
-        for (int i = 0; i < chunk_pixels; i++) {
-            tx_buf[i] = ili9341_color_swap(buf16[sent + i]);
-        }
-
-        ili9341_send_data_bytes(tx_buf, chunk_pixels);
-
-        sent += chunk_pixels;
-    }
-}
-
-/**********************
  * LVGL flush callback
  **********************/
 static void ili9341_flush_cb(lv_display_t * display, const lv_area_t * area, uint8_t * px_map)
 {
-    int32_t w = area->x2 - area->x1 + 1;
-    int32_t h = area->y2 - area->y1 + 1;
-
     ili9341_flush_spi(area->x1, area->y1, area->x2, area->y2, px_map);
-
     //Inform LVGL that flushing is complete so buffer can be modified again.
     lv_display_flush_ready(display);
 }
 
-/**********************
+/********************************************
  * LVGL Task to Updte/Refresh the display
- **********************/
+ ********************************************/
 void lvgl_task(void *pvParameter)
 {
     ESP_LOGI(TAG, "Starting LVGL Task...");
@@ -270,51 +227,52 @@ void lvgl_task(void *pvParameter)
 void app_main(void)
 {
     ESP_LOGI(TAG, "Initializing Display SPI Drivers...");
-    // st7735_init();
-    // ili9488_init();
     ili9341_init();
 
-    ili9341_set_rotation(ILI9341_ROTATION_270);
+    // Set Display Rotation
+    ili9341_set_rotation(display_rotation);
     vTaskDelay(pdMS_TO_TICKS(500)); // Wait for the display to stabilize
 
-    ili9341_fill_screen(COLOR_BLACK);
+    // Test Colors with solid fills
+    ESP_LOGI(TAG, "Testing Display with Solid Color Fills...");
+/*
+    ili9341_fill_screen(display_rotation,COLOR_BLACK);
     vTaskDelay(pdMS_TO_TICKS(500)); // Wait for the display to stabilize
 
-    ili9341_fill_screen(COLOR_RED);
+    ili9341_fill_screen(display_rotation, COLOR_RED);
     vTaskDelay(pdMS_TO_TICKS(500)); // Wait for the display to stabilize
 
-    ili9341_fill_screen(COLOR_GREEN);
+    ili9341_fill_screen(display_rotation, COLOR_GREEN);
     vTaskDelay(pdMS_TO_TICKS(500)); // Wait for the display to stabilize
 
-    ili9341_fill_screen(COLOR_BLUE);
+    ili9341_fill_screen(display_rotation, 0x001F);
     vTaskDelay(pdMS_TO_TICKS(500)); // Wait for the display to stabilize
 
-    ili9341_fill_screen_white();
+    ili9341_fill_screen_white(display_rotation);
     vTaskDelay(pdMS_TO_TICKS(500)); // Wait for the display to stabilize
+*/
 
+    // Start LVGL
     ESP_LOGI(TAG, "Initializing LVGL...");
     lv_init();
-
-    /**********************
-     * Display buffer
-     **********************/
-    static  lv_color_t buf1[ILI9341_DISPLAY_BUFFER_SIZE];
     
+    // Display buffer
+    static  lv_color_t buf1[ILI9341_DISPLAY_BUFFER_SIZE];
     // Register the display driver with LVGL
     lv_display_t * disp_drv = lv_display_create(ILI9341_DISP_HOR_RES, ILI9341_DISP_VER_RES);
-    lv_display_set_rotation(disp_drv, LV_DISPLAY_ROTATION_90); // Adjust rotation as needed
+    lv_display_set_rotation(disp_drv, display_rotation); // Adjust rotation as needed
     lv_display_set_buffers(disp_drv, buf1, NULL, sizeof(buf1), LV_DISPLAY_RENDER_MODE_PARTIAL);
     lv_display_set_flush_cb(disp_drv, ili9341_flush_cb);
     
     // Fill background with BLACK
-    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex3(COLOR_WHITE), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex3(0x65fb), LV_PART_MAIN);
     
     // Example for displaying C Array image 
     lv_example_label_1();
     // lv_example_img_1();
     // lv_example_img_2();
     
-    // /* Start LVGL task */
+    // Start LVGL task
     xTaskCreatePinnedToCore(lvgl_task, "lvgl_task", 1024 * 16, NULL, 1, NULL, 1);
 
 }

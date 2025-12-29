@@ -1,6 +1,8 @@
 #include "ili9341_driver.h"
 #include <stdio.h>
 
+#define ILI9341_FILL_CHUNK_PIXELS 1024  // Number of pixels per chunk when filling the screen
+
 spi_device_handle_t ili9341_spi;
 
 void ili9341_spi_config() {
@@ -70,25 +72,8 @@ void ili9341_send_data_bytes(uint16_t *data, size_t len)
 void ili9341_init() {
     // Configure SPI
     ili9341_spi_config();
-    
-    // Trun On the display Backlight
-    gpio_set_level(ILI9341_PIN_BL, 1);
-    vTaskDelay(10 / portTICK_PERIOD_MS);
-    
-    // // Basic init sequence (from ST7735 datasheet)
-    // ili9341_send_command(0x01); // Software reset
-    // vTaskDelay(150 / portTICK_PERIOD_MS);
 
-    // ili9341_send_command(0x11); // Sleep out
-    // vTaskDelay(500 / portTICK_PERIOD_MS);
-
-    // ili9341_send_command(0x3A); // Set color mode
-    // ili9341_send_data(0x05);    // 16-bit RGB565
-    // // Set default rotation
-    // ili9341_set_rotation(ILI9341_ROTATION_0);
-
-    // ili9341_send_command(0x29); // Display on
-
+    // Basic init sequence (from ILI9341 datasheet)
     ili9341_send_command(0xEF);
     ili9341_send_data(0x03);
     ili9341_send_data(0x80);
@@ -189,101 +174,161 @@ void ili9341_init() {
     ili9341_send_data(0x0F);
     ili9341_send_data(0x0C);
     ili9341_send_data(0x31);
-    ili9341_send_data(0x36);
-    ili9341_send_data(0x0F);
-
+    
     ili9341_send_command(ILI9341_SLPOUT);    //Exit Sleep
     
-    // end_tft_write();
     vTaskDelay(pdMS_TO_TICKS(200));
-    // begin_tft_write();
     
     // Set default rotation
     ili9341_set_rotation(ILI9341_ROTATION_0);
 
     //Display on
-    ili9341_send_command(ILI9341_DISPON);    
-
+    ili9341_send_command(ILI9341_DISPON);
+    
+    // Trun On the display Backlight
+    gpio_set_level(ILI9341_PIN_BL, 1);
+    vTaskDelay(10 / portTICK_PERIOD_MS);
 }
 
-esp_err_t ili9341_set_rotation(ili9341_rotation_t rotation) {
-
-    uint8_t madctl;
+esp_err_t ili9341_set_rotation(ili9341_rotation_t rotation)
+{
+    uint8_t madctl = 0;
 
     switch (rotation) {
-        case ILI9341_ROTATION_0:
-            madctl = 0x00; // MY=0, MX=0, MV=0
+        case ILI9341_ROTATION_0:   // Portrait
+            madctl = 0x48; // MX | BGR
             break;
-        case ILI9341_ROTATION_90:
-            madctl = 0x60; // MY=0, MX=1, MV=1
+
+        case ILI9341_ROTATION_90:  // Landscape
+            madctl = 0x28; // MV | BGR
             break;
+
         case ILI9341_ROTATION_180:
-            madctl = 0xC0; // MY=1, MX=1, MV=0
+            madctl = 0x88; // MY | BGR
             break;
+
         case ILI9341_ROTATION_270:
-            madctl = 0xA0; // MY=1, MX=0, MV=1
+            madctl = 0xE8; // MX | MY | MV | BGR
             break;
+
         default:
             return ESP_ERR_INVALID_ARG;
     }
 
-    ili9341_send_command(TFT_MADCTL); // MADCTL
+    ili9341_send_command(ILI9341_MADCTL);
     ili9341_send_data(madctl);
     return ESP_OK;
 }
 
-uint16_t swap_u16(uint16_t v) {
-    return (v >> 8) | (v << 8);
-}
-
 void ili9341_set_address_window(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
 {
+    // Clamp
+    if (x1 < x0 || y1 < y0) return;
+
     // Column addr set
-    gpio_set_level(ILI9341_PIN_DC, 0);
     ili9341_send_command(ILI9341_CASET);  
-    gpio_set_level(ILI9341_PIN_DC, 1);
     ili9341_send_data(x0 >> 8);
     ili9341_send_data(x0 & 0xFF);
     ili9341_send_data(x1 >> 8);
     ili9341_send_data(x1 & 0xFF);
     
     // Row addr set
-    gpio_set_level(ILI9341_PIN_DC, 0);
     ili9341_send_command(ILI9341_RASET);  
-    gpio_set_level(ILI9341_PIN_DC, 1);
     ili9341_send_data(y0 >> 8);
     ili9341_send_data(y0 & 0xFF);
     ili9341_send_data(y1 >> 8);
     ili9341_send_data(y1 & 0xFF);
+    
     // Write to RAM
-    gpio_set_level(ILI9341_PIN_DC, 0);
     ili9341_send_command(ILI9341_RAMWR);
 }
 
-void ili9341_fill_screen(uint16_t color) {
-    // Set window 160 x 128 for landscape mode
-    ili9341_set_address_window(0, 0, ILI9341_DISP_VER_RES - 1, ILI9341_DISP_HOR_RES - 1);
+uint16_t ili9341_color_swap(uint16_t v)
+{
+    return (v >> 8) | (v << 8);  // swap MSB and LSB
+}
 
-    int pixels = ILI9341_DISP_HOR_RES * ILI9341_DISP_VER_RES;
-    const int CHUNK_PIXELS = 512;  // 1 KB chunk
-
-    // Small buffer with repeated color
-    uint16_t buf[CHUNK_PIXELS];
-    for (int i = 0; i < CHUNK_PIXELS; i++) {
-        buf[i] = color;
-        // buf[i] = swap_u16(color);
-    }
-    
-    // Send in chunks
-    while(pixels > 0)
+void ili9341_fill_screen(ili9341_rotation_t rotation, uint16_t color) {
+    // Set window 320 x 240 for differnt orientation modes
+    switch (rotation)
     {
-        int chunk = (pixels > CHUNK_PIXELS) ? CHUNK_PIXELS : pixels;
-        ili9341_send_data_bytes(buf, chunk);
-        pixels -= chunk;
+    case ILI9341_ROTATION_0:
+        ili9341_set_address_window(0, 0, ILI9341_DISP_HOR_RES - 1, ILI9341_DISP_VER_RES - 1);
+        break;
+    case ILI9341_ROTATION_90:
+        ili9341_set_address_window(0, 0, ILI9341_DISP_VER_RES - 1, ILI9341_DISP_HOR_RES - 1);
+        break;
+    case ILI9341_ROTATION_180:
+        ili9341_set_address_window(0, 0, ILI9341_DISP_HOR_RES - 1, ILI9341_DISP_VER_RES - 1);
+        break;
+    case ILI9341_ROTATION_270:
+        ili9341_set_address_window(0, 0, ILI9341_DISP_VER_RES - 1, ILI9341_DISP_HOR_RES - 1);
+        break;
+    
+    default:
+        ili9341_set_address_window(0, 0, ILI9341_DISP_HOR_RES - 1, ILI9341_DISP_VER_RES - 1);
+        break;
+    }
+
+    // Send pixel data (RGB565 format)
+    int total_pixels = (ILI9341_DISP_HOR_RES) * (ILI9341_DISP_VER_RES);
+    // Temporary buffer for swapped colors
+    static uint16_t tx_buf[ILI9341_FILL_CHUNK_PIXELS];
+
+    int32_t sent = 0;
+    while (sent < total_pixels) {
+        int32_t chunk_pixels = total_pixels - sent;
+        if (chunk_pixels > ILI9341_FILL_CHUNK_PIXELS) {
+            chunk_pixels = ILI9341_FILL_CHUNK_PIXELS;
+        }
+
+        // Swap colors into tx_buf
+        for (int i = 0; i < chunk_pixels; i++) {
+            tx_buf[i] = ili9341_color_swap(color);
+        }
+
+        ili9341_send_data_bytes(tx_buf, chunk_pixels);
+
+        sent += chunk_pixels;
     }
 }
 
-void ili9341_fill_screen_white() {
+void ili9341_fill_screen_white(ili9341_rotation_t rotation) {
     uint16_t color = 0xFFFF;
-    ili9341_fill_screen(color);
+    ili9341_fill_screen(rotation, color);
+}
+
+/****************************************************************************************
+ * Display driver function to send pixels data to LVGL
+ ****************************************************************************************/
+void ili9341_flush_spi(int x1, int y1, int x2, int y2, uint8_t * px_map)
+{
+    #define SPI_MAX_PIXELS_AT_ONCE 1024   // ~2 KB chunk
+    
+    uint16_t * buf16 = (uint16_t *)px_map; // Let's say it's a 16 bit (RGB565) display
+
+    // Set window 160 x 128 for landscape mode
+    ili9341_set_address_window(x1, y1, x2, y2);
+
+    // Send pixel data (RGB565 format)
+    int total_pixels = (x2 - x1 + 1) * (y2 - y1 + 1);
+    // Temporary buffer for swapped colors
+    static uint16_t tx_buf[SPI_MAX_PIXELS_AT_ONCE];
+
+    int32_t sent = 0;
+    while (sent < total_pixels) {
+        int32_t chunk_pixels = total_pixels - sent;
+        if (chunk_pixels > SPI_MAX_PIXELS_AT_ONCE) {
+            chunk_pixels = SPI_MAX_PIXELS_AT_ONCE;
+        }
+
+        // Swap colors into tx_buf
+        for (int i = 0; i < chunk_pixels; i++) {
+            tx_buf[i] = ili9341_color_swap(buf16[sent + i]);
+        }
+
+        ili9341_send_data_bytes(tx_buf, chunk_pixels);
+
+        sent += chunk_pixels;
+    }
 }

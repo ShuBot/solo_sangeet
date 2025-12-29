@@ -201,8 +201,9 @@ void ili9341_init();
 esp_err_t ili9341_set_rotation(ili9341_rotation_t rotation);
 void ili9341_set_address_window(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);
 
-uint16_t swap_u16(uint16_t v);
-void ili9341_fill_screen(uint16_t color);
-void ili9341_fill_screen_white();
+uint16_t ili9341_color_swap(uint16_t v);
+void ili9341_fill_screen(ili9341_rotation_t rotation, uint16_t color);
+void ili9341_fill_screen_white(ili9341_rotation_t rotation);
+void ili9341_flush_spi(int x1, int y1, int x2, int y2, uint8_t * px_map);
 
 #endif // ILI9341_DRIVER_H
