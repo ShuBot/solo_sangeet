@@ -7,84 +7,10 @@
 #include "esp_timer.h"
 #include "esp_log.h"
 
-// #include "ili9488_driver.h"
-#include "st7735_driver.h"
+#include "ili9341_driver.h"
 
-#define TAG "MAIN_APP"
+#define TAG                     "MAIN_APP"
 #define LV_TICK_PERIOD_MS       10
-
-#define BTN_UP                  GPIO_NUM_16
-#define BTN_DOWN                GPIO_NUM_17
-#define BTN_ENTER               GPIO_NUM_5
-#define BTN_BACK                GPIO_NUM_4
-
-#define DEBOUNCE_MS             350   // minimum time between key events
-#define REPEAT_MS               500   // key repeat rate if held
-
-static uint32_t last_key = 0;
-static uint32_t last_press_time = 0;
-static bool key_held = false;
-
-// static void buttons_init(void)
-// {
-//     gpio_config_t io_conf = {
-//         .pin_bit_mask = (1ULL<<BTN_UP) | (1ULL<<BTN_DOWN) | (1ULL<<BTN_ENTER) | (1ULL<<BTN_BACK),
-//         .mode = GPIO_MODE_INPUT,
-//         .pull_up_en = GPIO_PULLUP_ENABLE,   // using internal pull-up
-//         .pull_down_en = GPIO_PULLDOWN_DISABLE,
-//         .intr_type = GPIO_INTR_DISABLE
-//     };
-//     gpio_config(&io_conf);
-//     ESP_LOGI(TAG, "GPIO Init done");
-// }
-
-// static int get_pressed_key(void)
-// {
-//     if (gpio_get_level(BTN_UP) == 0) {
-//         ESP_LOGI(TAG, "LV_KEY_UP");
-//         return LV_KEY_RIGHT;
-//     } else if(gpio_get_level(BTN_DOWN) == 0) {
-//         ESP_LOGI(TAG, "LV_KEY_DOWN");
-//         return LV_KEY_LEFT;
-//     } else if(gpio_get_level(BTN_ENTER) == 0) {
-//         ESP_LOGI(TAG, "LV_KEY_ENTER");
-//         return LV_KEY_ENTER;
-//     } else if (gpio_get_level(BTN_BACK) == 0) {
-//         ESP_LOGI(TAG, "LV_KEY_HOME");
-//         return LV_KEY_HOME;
-//     }
-//     else {
-//         return 0;
-//     }
-// }
-
-// static void button_read_cb(lv_indev_drv_t * drv, lv_indev_data_t* data)
-// {
-//     uint32_t now = lv_tick_get(); // current ms tick from LVGL
-//     int key = get_pressed_key();
-
-    
-//     if (key != 0) {
-//         if (last_key != key || (!key_held && (now - last_press_time) > DEBOUNCE_MS) ||
-//         (key_held && (now - last_press_time) > REPEAT_MS)) {
-            
-//             data->key = key;
-//             data->state = LV_INDEV_STATE_PRESSED;
-            
-//             last_key = key;
-//             last_press_time = now;
-//             key_held = true;
-//         } else {
-//             data->key = last_key;
-//             data->state = LV_INDEV_STATE_RELEASED; // don’t spam presses
-//         }
-//     } else {
-//         data->key = last_key;
-//         data->state = LV_INDEV_STATE_RELEASED;
-//         // data->enc_diff = enc_get_new_moves();
-//         key_held = false;
-//     }
-// }
 
 /*
 * Image for example test
@@ -240,18 +166,6 @@ const lv_image_dsc_t bg_cat_img = {
   .data = bg_cat_img_map,
 };
 
-void lv_example_img_2(void)
-{
-    LV_IMAGE_DECLARE(img_cogwheel_argb);
-    lv_obj_t * img1 = lv_image_create(lv_screen_active());
-    lv_image_set_src(img1, &img_cogwheel_argb);
-    lv_obj_align(img1, LV_ALIGN_CENTER, 0, 0);
-
-    lv_obj_t * img2 = lv_image_create(lv_screen_active());
-    lv_image_set_src(img2, LV_SYMBOL_OK "Accept");
-    lv_obj_align_to(img2, img1, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
-}
-
 void lv_example_img_1(void)
 {
     LV_IMG_DECLARE(bg_cat_img);
@@ -265,22 +179,40 @@ void lv_example_img_1(void)
     lv_obj_align_to(img4, img3, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
 }
 
+void lv_example_label_1(void)
+{
+    lv_obj_t * label1 = lv_label_create(lv_screen_active());
+    lv_label_set_long_mode(label1, LV_LABEL_LONG_MODE_WRAP);     /*Break the long lines*/
+    lv_label_set_recolor(label1, true);                      /*Enable re-coloring by commands in the text*/
+    lv_label_set_text(label1, "#0000ff Re-color# #ff00ff words# #ff0000 of a# label, align the lines to the center "
+                      "and wrap long text automatically.");
+    lv_obj_set_width(label1, 150);  /*Set smaller width to make the lines wrap*/
+    lv_obj_set_style_text_align(label1, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(label1, LV_ALIGN_CENTER, 0, -40);
+
+    lv_obj_t * label2 = lv_label_create(lv_screen_active());
+    lv_label_set_long_mode(label2, LV_LABEL_LONG_MODE_SCROLL_CIRCULAR);     /*Circular scroll*/
+    lv_obj_set_width(label2, 150);
+    lv_label_set_text(label2, "It is a circularly scrolling text. ");
+    lv_obj_align(label2, LV_ALIGN_CENTER, 0, 40);
+}
+
 /**********************
  * Display driver function to send pixels data
  **********************/
-static inline uint16_t st7735_color_swap(uint16_t v)
+static inline uint16_t ili9341_color_swap(uint16_t v)
 {
     return (v >> 8) | (v << 8);  // swap MSB and LSB
 }
 
-void st7735_flush_cb_spi_buffer(int x1, int y1, int x2, int y2, uint8_t * px_map)
+void ili9341_flush_spi(int x1, int y1, int x2, int y2, uint8_t * px_map)
 {
     #define SPI_MAX_PIXELS_AT_ONCE 1024   // ~2 KB chunk
     
-    uint16_t * buf16 = (uint16_t *)px_map; /* Let's say it's a 16 bit (RGB565) display */
+    uint16_t * buf16 = (uint16_t *)px_map; // Let's say it's a 16 bit (RGB565) display
 
     // Set window 160 x 128 for landscape mode
-    st7735_set_address_window(x1, y1, x2, y2);
+    ili9341_set_address_window(x1, y1, x2, y2);
 
     // Send pixel data (RGB565 format)
     int total_pixels = (x2 - x1 + 1) * (y2 - y1 + 1);
@@ -296,10 +228,10 @@ void st7735_flush_cb_spi_buffer(int x1, int y1, int x2, int y2, uint8_t * px_map
 
         // Swap colors into tx_buf
         for (int i = 0; i < chunk_pixels; i++) {
-            tx_buf[i] = st7735_color_swap(buf16[sent + i]);
+            tx_buf[i] = ili9341_color_swap(buf16[sent + i]);
         }
 
-        st7735_send_data_bytes(tx_buf, chunk_pixels);
+        ili9341_send_data_bytes(tx_buf, chunk_pixels);
 
         sent += chunk_pixels;
     }
@@ -308,14 +240,14 @@ void st7735_flush_cb_spi_buffer(int x1, int y1, int x2, int y2, uint8_t * px_map
 /**********************
  * LVGL flush callback
  **********************/
-static void st7735_flush_cb(lv_display_t * display, const lv_area_t * area, uint8_t * px_map)
+static void ili9341_flush_cb(lv_display_t * display, const lv_area_t * area, uint8_t * px_map)
 {
     int32_t w = area->x2 - area->x1 + 1;
     int32_t h = area->y2 - area->y1 + 1;
 
-    st7735_flush_cb_spi_buffer(area->x1, area->y1, w, h, px_map);
+    ili9341_flush_spi(area->x1, area->y1, area->x2, area->y2, px_map);
 
-    /* Inform LVGL that flushing is complete so buffer can be modified again. */
+    //Inform LVGL that flushing is complete so buffer can be modified again.
     lv_display_flush_ready(display);
 }
 
@@ -338,24 +270,27 @@ void lvgl_task(void *pvParameter)
 void app_main(void)
 {
     ESP_LOGI(TAG, "Initializing Display SPI Drivers...");
-    st7735_init();
+    // st7735_init();
     // ili9488_init();
+    ili9341_init();
 
-    // Rotate the display if needed
-    st7735_set_rotation(ST7735_ROTATION_270);
+    ili9341_set_rotation(ILI9341_ROTATION_270);
     vTaskDelay(pdMS_TO_TICKS(500)); // Wait for the display to stabilize
 
-    st7735_fill_screen_white();
+    ili9341_fill_screen(COLOR_BLACK);
     vTaskDelay(pdMS_TO_TICKS(500)); // Wait for the display to stabilize
 
-    st7735_fill_screen(0xf800);
+    ili9341_fill_screen(COLOR_RED);
     vTaskDelay(pdMS_TO_TICKS(500)); // Wait for the display to stabilize
 
-    st7735_fill_screen(0xff00);
+    ili9341_fill_screen(COLOR_GREEN);
     vTaskDelay(pdMS_TO_TICKS(500)); // Wait for the display to stabilize
 
-    // Initialize buttons
-    // buttons_init();
+    ili9341_fill_screen(COLOR_BLUE);
+    vTaskDelay(pdMS_TO_TICKS(500)); // Wait for the display to stabilize
+
+    ili9341_fill_screen_white();
+    vTaskDelay(pdMS_TO_TICKS(500)); // Wait for the display to stabilize
 
     ESP_LOGI(TAG, "Initializing LVGL...");
     lv_init();
@@ -363,25 +298,23 @@ void app_main(void)
     /**********************
      * Display buffer
      **********************/
-    static lv_color_t buf1[ST7735_DISPLAY_BUFFER_SIZE];
-    // static lv_color_t buf2[ST7735_DISPLAY_BUFFER_SIZE * 40];
+    static  lv_color_t buf1[ILI9341_DISPLAY_BUFFER_SIZE];
     
     // Register the display driver with LVGL
-    lv_display_t * disp_drv = lv_display_create(ST7735_DISP_HOR_RES, ST7735_DISP_VER_RES);
+    lv_display_t * disp_drv = lv_display_create(ILI9341_DISP_HOR_RES, ILI9341_DISP_VER_RES);
     lv_display_set_rotation(disp_drv, LV_DISPLAY_ROTATION_90); // Adjust rotation as needed
     lv_display_set_buffers(disp_drv, buf1, NULL, sizeof(buf1), LV_DISPLAY_RENDER_MODE_PARTIAL);
-    lv_display_set_flush_cb(disp_drv, st7735_flush_cb);
+    lv_display_set_flush_cb(disp_drv, ili9341_flush_cb);
     
-    // Register the input device driver (buttons)
-    
-    // Fill background with green
-    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex3(COLOR_BLACK), LV_PART_MAIN);
+    // Fill background with BLACK
+    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex3(COLOR_WHITE), LV_PART_MAIN);
     
     // Example for displaying C Array image 
-    lv_example_img_1();
+    lv_example_label_1();
+    // lv_example_img_1();
     // lv_example_img_2();
     
-    /* Start LVGL task */
+    // /* Start LVGL task */
     xTaskCreatePinnedToCore(lvgl_task, "lvgl_task", 1024 * 16, NULL, 1, NULL, 1);
 
 }
