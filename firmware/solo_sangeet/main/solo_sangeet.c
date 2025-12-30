@@ -200,6 +200,22 @@ void lv_example_label_1(void)
     lv_obj_align(label2, LV_ALIGN_CENTER, 0, 40);
 }
 
+static lv_obj_t * touch_dot = NULL;
+void ui_touch_debug_init(void)
+{
+    lv_obj_t * scr = lv_scr_act();
+
+    /* Create a small dot */
+    touch_dot = lv_obj_create(scr);
+    lv_obj_set_size(touch_dot, 12, 12);
+    lv_obj_set_style_radius(touch_dot, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_color(touch_dot, lv_color_white(), 0);
+    lv_obj_set_style_border_width(touch_dot, 0, 0);
+
+    /* Start hidden */
+    lv_obj_add_flag(touch_dot, LV_OBJ_FLAG_HIDDEN);
+}
+
 /**********************
  * LVGL flush callback
  **********************/
@@ -211,24 +227,57 @@ static void ili9341_flush_cb(lv_display_t * display, const lv_area_t * area, uin
     lv_display_flush_ready(display);
 }
 
+/**********************
+ * LVGL touchpad read callback
+ **********************/
+static inline int map_u16(uint16_t v, uint16_t in_min, uint16_t in_max, int out_max)
+{
+    if (v < in_min) v = in_min;
+    if (v > in_max) v = in_max;
+    return (int)((v - in_min) * out_max / (in_max - in_min));
+}
+
 static void xpt2046_touchpad_read_cb(lv_indev_t * indev, lv_indev_data_t * data)
 {
-    uint16_t touchpad_x, touchpad_y;
-    if(xpt2046_read_raw(&touchpad_x, &touchpad_y)) {
-        data->state = LV_INDEV_STATE_PRESSED;
-        data->point.x = (touchpad_x * 240) / 4096;
-        data->point.y = (touchpad_y * 320) / 4096;
-        ESP_LOGI(TAG, "RAW X=%u  Y=%u State: PRESSED", touchpad_x, touchpad_y);
-    } else {
+    uint16_t xr, yr;
+
+    if (!xpt2046_read_raw(&xr, &yr)) {
         data->state = LV_INDEV_STATE_RELEASED;
+        return;
     }
 
-    static uint32_t cnt = 0;
-    cnt++;
-    if (cnt % 50 == 0) {
-        ESP_LOGI("LVGL", "Touch CB called");
-    }
+    #if TOUCH_SWAP_XY
+        uint16_t t = xr;
+        xr = yr;
+        yr = t;
+    #endif
 
+        int x = map_u16(xr, TOUCH_X_MIN, TOUCH_X_MAX, 240);
+        int y = map_u16(yr, TOUCH_Y_MIN, TOUCH_Y_MAX, 320);
+
+    #if TOUCH_INVERT_X
+        x = 239 - x;
+    #endif
+    #if TOUCH_INVERT_Y
+        y = 319 - y;
+    #endif
+
+    /* Clamp */
+    if (x < 0) x = 0;
+    if (x > 239) x = 239;
+    if (y < 0) y = 0;
+    if (y > 319) y = 319;
+
+    data->state = LV_INDEV_STATE_PRESSED;
+    data->point.x = x;
+    data->point.y = y;
+    // ESP_LOGI(TAG, "RAW X=%u  Y=%u State: PRESSED", data->point.x, data->point.y);
+    
+    /* Move the dot */
+    if (touch_dot) {
+        lv_obj_clear_flag(touch_dot, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_pos(touch_dot, x - 6, y - 6);
+    }
 }
 
 /********************************************
@@ -239,8 +288,7 @@ void lvgl_task(void *pvParameter)
     ESP_LOGI(TAG, "Starting LVGL Task...");
     
     while (1) {
-        // lv_task_handler();   // LVGL tasks (animations, redraw) 
-        lv_timer_handler();
+        lv_timer_handler();     // LVGL tasks (animations, redraw) 
         vTaskDelay(pdMS_TO_TICKS(LV_TICK_PERIOD_MS)); // Yield to avoid WDT reset
     }
 }
@@ -263,21 +311,6 @@ void lvgl_tick_init(void)
     esp_timer_handle_t tick_timer;
     ESP_ERROR_CHECK(esp_timer_create(&tick_args, &tick_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(tick_timer, 1000)); // 1 ms
-}
-
-// Test Task for Touch controller
-void xpt2046_test_task(void *arg)
-{
-    uint16_t x, y;
-    ESP_LOGI(TAG, "XPT2046 initialized, Starting touch test...");
-
-    while (1) {
-        if (xpt2046_read_raw(&x, &y)) {
-            ESP_LOGI("TOUCH     ", "RAW X=%u  Y=%u", x, y);
-            ESP_LOGI("TOUCH DISP", "RAW X=%u  Y=%u", (x * 240 / 4096), (y * 320 / 4096));
-        }
-        vTaskDelay(pdMS_TO_TICKS(50));
-    }
 }
 
 /**********************
@@ -360,12 +393,10 @@ void app_main(void)
     lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex3(COLOR_CYAN), LV_PART_MAIN);
     
     // Example for displaying C Array image 
-    lv_example_label_1();
-    lv_example_img_1();
+    // lv_example_label_1();
+    // lv_example_img_1();
+    ui_touch_debug_init();
     
     // Start LVGL task
     xTaskCreatePinnedToCore(lvgl_task, "lvgl_task", 1024 * 16, NULL, configMAX_PRIORITIES - 1 , NULL, 1);
-    
-    // Start Touch test task
-    // xTaskCreate(xpt2046_test_task, "touch_test", 2048, NULL, 5, NULL);
 }

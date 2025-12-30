@@ -15,14 +15,19 @@
 // The XPT2046 requires a lower SPI clock rate of 2.5MHz so we define that here:
 #define SPI_TOUCH_FREQUENCY  600000
 
-#define X_MIN  200
-#define X_MAX  3800
-#define Y_MIN  200
-#define Y_MAX  3800
-
 // XPT2046 Commands
 #define CMD_READ_X  0xD0
 #define CMD_READ_Y  0x90
+
+// Calibration values (need to be calibrated per device)
+#define TOUCH_X_MIN   320
+#define TOUCH_X_MAX   3800
+#define TOUCH_Y_MIN   240
+#define TOUCH_Y_MAX   3900
+
+#define TOUCH_SWAP_XY   0
+#define TOUCH_INVERT_X  0
+#define TOUCH_INVERT_Y  1   // very common for XPT2046
 
 void xpt2046_init(spi_host_device_t host);
 bool xpt2046_read_raw(uint16_t *x, uint16_t *y);
