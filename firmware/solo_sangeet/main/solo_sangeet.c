@@ -12,6 +12,8 @@
 
 #include "bt_audio.h"
 
+#include "sd_card_fs.h"
+
 #define TAG                     "MAIN_APP"
 #define LV_TICK_PERIOD_MS       10
 
@@ -406,4 +408,5 @@ void app_main(void)
     // Start BT Audio task
     // xTaskCreatePinnedToCore(bt_audio_task, "bt_audio_task", 1024 * 16, NULL, configMAX_PRIORITIES - 1 , NULL, 0);
     bt_audio_task();
+    sd_test_func();
 }

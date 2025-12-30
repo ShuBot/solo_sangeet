@@ -41,7 +41,7 @@ void ili9341_spi_config() {
     };
     
     // Initialize SPI bus
-    esp_err_t ret = spi_bus_initialize(MAIN_SPI_HOST, &buscfg, SPI_DMA_CH_AUTO);
+    esp_err_t ret = spi_bus_initialize(MAIN_SPI_HOST, &buscfg, SPI_DMA_CH1);
     assert(ret == ESP_OK);
 
     // Add device to bus
