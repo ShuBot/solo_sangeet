@@ -10,6 +10,8 @@
 #include "ili9341_driver.h"
 #include "xpt2046_touch_driver.h"
 
+#include "bt_audio.h"
+
 #define TAG                     "MAIN_APP"
 #define LV_TICK_PERIOD_MS       10
 
@@ -361,25 +363,26 @@ void app_main(void)
     
     // Display buffer
     static lv_color_t * draw_buf1;
-    static lv_color_t * draw_buf2;
+    // static lv_color_t * draw_buf2;
 
     draw_buf1 = heap_caps_malloc(ILI9341_DISPLAY_BUFFER_SIZE * sizeof(lv_color_t),
         MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL
     );
-    draw_buf2 = heap_caps_malloc(ILI9341_DISPLAY_BUFFER_SIZE * sizeof(lv_color_t),
-        MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL
-    );
+    // draw_buf2 = heap_caps_malloc(ILI9341_DISPLAY_BUFFER_SIZE * sizeof(lv_color_t),
+    //     MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL
+    // );
 
     // For development, we can use assert to ensure memory allocation was successful
     assert(draw_buf1);
-    assert(draw_buf2);
+    // assert(draw_buf2);
 
     // Register the display driver with LVGL
     lv_display_t * active_disp = lv_display_create(ILI9341_DISP_HOR_RES, ILI9341_DISP_VER_RES);
     assert(active_disp != NULL);
     lv_display_set_rotation(active_disp, display_rotation); // Adjust rotation as needed
     // lv_display_set_buffers(active_disp, buf1, NULL, sizeof(buf1), LV_DISPLAY_RENDER_MODE_PARTIAL);
-    lv_display_set_buffers(active_disp, draw_buf1, draw_buf2, ILI9341_DISPLAY_BUFFER_SIZE, LV_DISPLAY_RENDER_MODE_PARTIAL);
+    // lv_display_set_buffers(active_disp, draw_buf1, draw_buf2, ILI9341_DISPLAY_BUFFER_SIZE, LV_DISPLAY_RENDER_MODE_PARTIAL);
+    lv_display_set_buffers(active_disp, draw_buf1, NULL, ILI9341_DISPLAY_BUFFER_SIZE, LV_DISPLAY_RENDER_MODE_PARTIAL);
     lv_display_set_flush_cb(active_disp, ili9341_flush_cb);
     
     // Setup input device (touchpad)
@@ -399,4 +402,8 @@ void app_main(void)
     
     // Start LVGL task
     xTaskCreatePinnedToCore(lvgl_task, "lvgl_task", 1024 * 16, NULL, configMAX_PRIORITIES - 1 , NULL, 1);
+
+    // Start BT Audio task
+    // xTaskCreatePinnedToCore(bt_audio_task, "bt_audio_task", 1024 * 16, NULL, configMAX_PRIORITIES - 1 , NULL, 0);
+    bt_audio_task();
 }
