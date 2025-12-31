@@ -133,7 +133,7 @@ static void list_files(const char *path, int level)
     f_closedir(&dir);
 }
 
-void sd_test_func(void)
+void sd_fs_init(void)
 {
     esp_err_t ret;
 
@@ -164,7 +164,7 @@ void sd_test_func(void)
     // Example: for fixed frequency of 10MHz, use host.max_freq_khz = 10000;
     sdmmc_host_t host = SDSPI_HOST_DEFAULT();
     host.slot = SPI3_HOST;
-    host.max_freq_khz = 2000;
+    host.max_freq_khz = 8000;
 
     spi_bus_config_t bus_cfg = {
         .mosi_io_num = SD_PIN_NUM_MOSI,

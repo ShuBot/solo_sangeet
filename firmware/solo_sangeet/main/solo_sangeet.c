@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "lvgl.h"
+#include "lv_examples.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
@@ -9,10 +10,8 @@
 
 #include "ili9341_driver.h"
 #include "xpt2046_touch_driver.h"
-
 #include "bt_audio.h"
-
-#include "sd_card_fs.h"
+#include "audio_player.h"
 
 #define TAG                     "MAIN_APP"
 #define LV_TICK_PERIOD_MS       10
@@ -275,13 +274,13 @@ static void xpt2046_touchpad_read_cb(lv_indev_t * indev, lv_indev_data_t * data)
     data->state = LV_INDEV_STATE_PRESSED;
     data->point.x = x;
     data->point.y = y;
-    // ESP_LOGI(TAG, "RAW X=%u  Y=%u State: PRESSED", data->point.x, data->point.y);
+    ESP_LOGI(TAG, "RAW X=%u  Y=%u State: PRESSED", data->point.x, data->point.y);
     
-    /* Move the dot */
-    if (touch_dot) {
-        lv_obj_clear_flag(touch_dot, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_set_pos(touch_dot, x - 6, y - 6);
-    }
+    // Move the dot, for Touch Test UI
+    // if (touch_dot) {
+    //     lv_obj_clear_flag(touch_dot, LV_OBJ_FLAG_HIDDEN);
+    //     lv_obj_set_pos(touch_dot, x - 6, y - 6);
+    // }
 }
 
 /********************************************
@@ -357,6 +356,12 @@ void app_main(void)
     ili9341_fill_screen_white(display_rotation);
     vTaskDelay(pdMS_TO_TICKS(500)); // Wait for the display to stabilize
     */
+   
+    // Audio Player Initialization
+    audio_player_init();
+
+    // Start BT Audio task
+    bt_audio_task();
 
     // Start LVGL
     ESP_LOGI(TAG, "Initializing LVGL...");
@@ -365,14 +370,14 @@ void app_main(void)
     
     // Display buffer
     static lv_color_t * draw_buf1;
-    // static lv_color_t * draw_buf2;
+    static lv_color_t * draw_buf2;
 
     draw_buf1 = heap_caps_malloc(ILI9341_DISPLAY_BUFFER_SIZE * sizeof(lv_color_t),
         MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL
     );
-    // draw_buf2 = heap_caps_malloc(ILI9341_DISPLAY_BUFFER_SIZE * sizeof(lv_color_t),
-    //     MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL
-    // );
+    draw_buf2 = heap_caps_malloc(ILI9341_DISPLAY_BUFFER_SIZE * sizeof(lv_color_t),
+        MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL
+    );
 
     // For development, we can use assert to ensure memory allocation was successful
     assert(draw_buf1);
@@ -383,8 +388,8 @@ void app_main(void)
     assert(active_disp != NULL);
     lv_display_set_rotation(active_disp, display_rotation); // Adjust rotation as needed
     // lv_display_set_buffers(active_disp, buf1, NULL, sizeof(buf1), LV_DISPLAY_RENDER_MODE_PARTIAL);
-    // lv_display_set_buffers(active_disp, draw_buf1, draw_buf2, ILI9341_DISPLAY_BUFFER_SIZE, LV_DISPLAY_RENDER_MODE_PARTIAL);
-    lv_display_set_buffers(active_disp, draw_buf1, NULL, ILI9341_DISPLAY_BUFFER_SIZE, LV_DISPLAY_RENDER_MODE_PARTIAL);
+    lv_display_set_buffers(active_disp, draw_buf1, draw_buf2, ILI9341_DISPLAY_BUFFER_SIZE, LV_DISPLAY_RENDER_MODE_PARTIAL);
+    // lv_display_set_buffers(active_disp, draw_buf1, NULL, ILI9341_DISPLAY_BUFFER_SIZE, LV_DISPLAY_RENDER_MODE_PARTIAL);
     lv_display_set_flush_cb(active_disp, ili9341_flush_cb);
     
     // Setup input device (touchpad)
@@ -400,13 +405,10 @@ void app_main(void)
     // Example for displaying C Array image 
     // lv_example_label_1();
     // lv_example_img_1();
-    ui_touch_debug_init();
+    // ui_touch_debug_init();
+    audio_player_ui_init();
+    // lv_example_button_1();
     
     // Start LVGL task
     xTaskCreatePinnedToCore(lvgl_task, "lvgl_task", 1024 * 16, NULL, configMAX_PRIORITIES - 1 , NULL, 1);
-
-    // Start BT Audio task
-    // xTaskCreatePinnedToCore(bt_audio_task, "bt_audio_task", 1024 * 16, NULL, configMAX_PRIORITIES - 1 , NULL, 0);
-    bt_audio_task();
-    sd_test_func();
 }

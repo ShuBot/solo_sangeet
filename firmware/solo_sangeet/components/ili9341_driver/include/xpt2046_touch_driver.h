@@ -26,8 +26,8 @@
 #define TOUCH_Y_MAX   3900
 
 #define TOUCH_SWAP_XY   0
-#define TOUCH_INVERT_X  0
-#define TOUCH_INVERT_Y  1   // very common for XPT2046
+#define TOUCH_INVERT_X  1
+#define TOUCH_INVERT_Y  0   // very common for XPT2046
 
 void xpt2046_init(spi_host_device_t host);
 bool xpt2046_read_raw(uint16_t *x, uint16_t *y);

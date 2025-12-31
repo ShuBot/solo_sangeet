@@ -33,6 +33,7 @@
 #include "esp_avrc_api.h"
 
 #include "bt_audio.h"
+#include "audio_player.h"
 
 #define CONFIG_EXAMPLE_SSP_ENABLED      1
 /*********************************
@@ -489,10 +490,39 @@ static int32_t bt_app_a2d_data_cb(uint8_t *data, int32_t len)
     if (data == NULL || len < 0) {
         return 0;
     }
-
+        
+    /*
     int16_t *p_buf = (int16_t *)data;
     for (int i = 0; i < (len >> 1); i++) {
         p_buf[i] = rand() % (1 << 16);
+    }
+
+    return len;
+    */
+ 
+    if (!audio_player_is_playing()) {
+        memset(data, 0, len);
+        return len;
+    }
+    
+    size_t item_size;
+    uint8_t *item = (uint8_t *) xRingbufferReceiveUpTo(
+        audio_rb,
+        &item_size,
+        0,
+        len
+    );
+
+    if (!item) {
+        memset(data, 0, len);   // silence
+        return len;
+    }
+
+    memcpy(data, item, item_size);
+    vRingbufferReturnItem(audio_rb, item);
+
+    if (item_size < len) {
+        memset(data + item_size, 0, len - item_size);
     }
 
     return len;
@@ -691,6 +721,18 @@ static void bt_app_av_state_connected_hdlr(uint16_t event, void *param)
         a2d = (esp_a2d_cb_param_t *)(param);
         if (ESP_A2D_AUDIO_STATE_STARTED == a2d->audio_stat.state) {
             s_pkt_cnt = 0;
+            // ESP_LOGI("TEST", "A2DP streaming started");
+            // audio_player_start("/sdcard/test_00.wav");
+            ESP_LOGI("BT", "A2DP streaming started");
+            xEventGroupSetBits(audio_evt_grp, EVT_A2DP_STREAMING);
+        }
+        else if (a2d->audio_stat.state == ESP_A2D_AUDIO_STATE_STOPPED) {
+            // ESP_LOGI("TEST", "A2DP streaming stopped");
+            // audio_player_stop();
+            ESP_LOGI("BT", "A2DP streaming stopped");
+            xEventGroupClearBits(audio_evt_grp, EVT_A2DP_STREAMING);
+            xEventGroupClearBits(audio_evt_grp, EVT_AUDIO_PLAYING);
+            audio_player_stop();
         }
         break;
     }
