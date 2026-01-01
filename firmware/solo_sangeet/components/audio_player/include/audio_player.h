@@ -21,6 +21,27 @@ extern EventGroupHandle_t audio_evt_grp;
 #define WAV_HEADER_SIZE    44
 
 extern RingbufHandle_t audio_rb;
+extern QueueHandle_t audio_cmd_q;
+extern const char *current_file;
+
+// Audio Player Commands
+typedef enum {
+    AUDIO_CMD_NONE = 0,
+    AUDIO_CMD_PLAY,
+    AUDIO_CMD_PAUSE,
+    AUDIO_CMD_STOP,
+    AUDIO_CMD_EOF,
+    AUDIO_CMD_BT_CONNECTED,
+    AUDIO_CMD_BT_DISCONNECTED,
+} audio_cmd_t;
+
+// Audio Player States
+typedef enum {
+    AUDIO_STATE_IDLE,
+    AUDIO_STATE_PLAYING,
+    AUDIO_STATE_PAUSED,
+    AUDIO_STATE_STOPPED,
+} audio_state_t;
 
 void audio_player_init(void);
 bool audio_player_start(const char *path);
@@ -32,5 +53,10 @@ void audio_reader_task(void *arg);
 void audio_control_task(void *arg);
 
 void audio_player_ui_init(void);
+
+typedef void (*audio_player_event_cb_t)(void);
+void audio_player_register_eof_cb(audio_player_event_cb_t cb);
+void ui_audio_eof_cb(void);
+void ui_reset_play_button(void);
 
 #endif // AUDIO_PLAYER_H

@@ -36,6 +36,95 @@
 #include "audio_player.h"
 
 #define CONFIG_EXAMPLE_SSP_ENABLED      1
+
+/* log tags */
+#define BT_AV_TAG             "BT_AV"
+#define BT_RC_CT_TAG          "RC_CT"
+
+/* device name */
+#define LOCAL_DEVICE_NAME     "ESP_A2DP_SRC"
+
+/* AVRCP used transaction label */
+#define APP_RC_CT_TL_GET_CAPS            (0)
+#define APP_RC_CT_TL_RN_VOLUME_CHANGE    (1)
+
+enum {
+    BT_APP_STACK_UP_EVT   = 0x0000,    /* event for stack up */
+    BT_APP_HEART_BEAT_EVT = 0xff00,    /* event for heart beat */
+};
+
+/* A2DP global states */
+enum {
+    APP_AV_STATE_IDLE,
+    APP_AV_STATE_DISCOVERING,
+    APP_AV_STATE_DISCOVERED,
+    APP_AV_STATE_UNCONNECTED,
+    APP_AV_STATE_CONNECTING,
+    APP_AV_STATE_CONNECTED,
+    APP_AV_STATE_DISCONNECTING,
+};
+
+/* sub states of APP_AV_STATE_CONNECTED */
+enum {
+    APP_AV_MEDIA_STATE_IDLE,
+    APP_AV_MEDIA_STATE_STARTING,
+    APP_AV_MEDIA_STATE_STARTED,
+    APP_AV_MEDIA_STATE_STOPPING,
+};
+
+/*********************************
+ * STATIC FUNCTION DECLARATIONS
+ ********************************/
+
+/* handler for bluetooth stack enabled events */
+static void bt_av_hdl_stack_evt(uint16_t event, void *p_param);
+
+/* avrc controller event handler */
+static void bt_av_hdl_avrc_ct_evt(uint16_t event, void *p_param);
+
+/* GAP callback function */
+static void bt_app_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param);
+
+/* callback function for A2DP source */
+static void bt_app_a2d_cb(esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param);
+
+/* callback function for A2DP source audio data stream */
+static int32_t bt_app_a2d_data_cb(uint8_t *data, int32_t len);
+
+/* callback function for AVRCP controller */
+static void bt_app_rc_ct_cb(esp_avrc_ct_cb_event_t event, esp_avrc_ct_cb_param_t *param);
+
+/* handler for heart beat timer */
+static void bt_app_a2d_heart_beat(TimerHandle_t arg);
+
+/* A2DP application state machine */
+static void bt_app_av_sm_hdlr(uint16_t event, void *param);
+
+/* utils for transfer BLuetooth Deveice Address into string form */
+static char *bda2str(esp_bd_addr_t bda, char *str, size_t size);
+
+/* A2DP application state machine handler for each state */
+static void bt_app_av_state_unconnected_hdlr(uint16_t event, void *param);
+static void bt_app_av_state_connecting_hdlr(uint16_t event, void *param);
+static void bt_app_av_state_connected_hdlr(uint16_t event, void *param);
+static void bt_app_av_state_disconnecting_hdlr(uint16_t event, void *param);
+
+/*********************************
+ * STATIC VARIABLE DEFINITIONS
+ ********************************/
+
+static esp_bd_addr_t s_peer_bda = {0};                        /* Bluetooth Device Address of peer device*/
+static uint8_t s_peer_bdname[ESP_BT_GAP_MAX_BDNAME_LEN + 1];  /* Bluetooth Device Name of peer device*/
+static int s_a2d_state = APP_AV_STATE_IDLE;                   /* A2DP global state */
+static int s_media_state = APP_AV_MEDIA_STATE_IDLE;           /* sub states of APP_AV_STATE_CONNECTED */
+static int s_intv_cnt = 0;                                    /* count of heart beat intervals */
+static int s_connecting_intv = 0;                             /* count of heart beat intervals for connecting */
+static uint32_t s_pkt_cnt = 0;                                /* count of packets */
+static esp_avrc_rn_evt_cap_mask_t s_avrc_peer_rn_cap;         /* AVRC target notification event capability bit mask */
+static TimerHandle_t s_tmr;                                   /* handle of heart beat timer */
+
+static const char remote_device_name[] = "MI Portable Bluetooth Speaker";
+
 /*********************************
  * STATIC FUNCTION DECLARATIONS
  ********************************/
@@ -151,94 +240,6 @@ void bt_app_task_shut_down(void)
         s_bt_app_task_queue = NULL;
     }
 }
-
-/* log tags */
-#define BT_AV_TAG             "BT_AV"
-#define BT_RC_CT_TAG          "RC_CT"
-
-/* device name */
-#define LOCAL_DEVICE_NAME     "ESP_A2DP_SRC"
-
-/* AVRCP used transaction label */
-#define APP_RC_CT_TL_GET_CAPS            (0)
-#define APP_RC_CT_TL_RN_VOLUME_CHANGE    (1)
-
-enum {
-    BT_APP_STACK_UP_EVT   = 0x0000,    /* event for stack up */
-    BT_APP_HEART_BEAT_EVT = 0xff00,    /* event for heart beat */
-};
-
-/* A2DP global states */
-enum {
-    APP_AV_STATE_IDLE,
-    APP_AV_STATE_DISCOVERING,
-    APP_AV_STATE_DISCOVERED,
-    APP_AV_STATE_UNCONNECTED,
-    APP_AV_STATE_CONNECTING,
-    APP_AV_STATE_CONNECTED,
-    APP_AV_STATE_DISCONNECTING,
-};
-
-/* sub states of APP_AV_STATE_CONNECTED */
-enum {
-    APP_AV_MEDIA_STATE_IDLE,
-    APP_AV_MEDIA_STATE_STARTING,
-    APP_AV_MEDIA_STATE_STARTED,
-    APP_AV_MEDIA_STATE_STOPPING,
-};
-
-/*********************************
- * STATIC FUNCTION DECLARATIONS
- ********************************/
-
-/* handler for bluetooth stack enabled events */
-static void bt_av_hdl_stack_evt(uint16_t event, void *p_param);
-
-/* avrc controller event handler */
-static void bt_av_hdl_avrc_ct_evt(uint16_t event, void *p_param);
-
-/* GAP callback function */
-static void bt_app_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param);
-
-/* callback function for A2DP source */
-static void bt_app_a2d_cb(esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param);
-
-/* callback function for A2DP source audio data stream */
-static int32_t bt_app_a2d_data_cb(uint8_t *data, int32_t len);
-
-/* callback function for AVRCP controller */
-static void bt_app_rc_ct_cb(esp_avrc_ct_cb_event_t event, esp_avrc_ct_cb_param_t *param);
-
-/* handler for heart beat timer */
-static void bt_app_a2d_heart_beat(TimerHandle_t arg);
-
-/* A2DP application state machine */
-static void bt_app_av_sm_hdlr(uint16_t event, void *param);
-
-/* utils for transfer BLuetooth Deveice Address into string form */
-static char *bda2str(esp_bd_addr_t bda, char *str, size_t size);
-
-/* A2DP application state machine handler for each state */
-static void bt_app_av_state_unconnected_hdlr(uint16_t event, void *param);
-static void bt_app_av_state_connecting_hdlr(uint16_t event, void *param);
-static void bt_app_av_state_connected_hdlr(uint16_t event, void *param);
-static void bt_app_av_state_disconnecting_hdlr(uint16_t event, void *param);
-
-/*********************************
- * STATIC VARIABLE DEFINITIONS
- ********************************/
-
-static esp_bd_addr_t s_peer_bda = {0};                        /* Bluetooth Device Address of peer device*/
-static uint8_t s_peer_bdname[ESP_BT_GAP_MAX_BDNAME_LEN + 1];  /* Bluetooth Device Name of peer device*/
-static int s_a2d_state = APP_AV_STATE_IDLE;                   /* A2DP global state */
-static int s_media_state = APP_AV_MEDIA_STATE_IDLE;           /* sub states of APP_AV_STATE_CONNECTED */
-static int s_intv_cnt = 0;                                    /* count of heart beat intervals */
-static int s_connecting_intv = 0;                             /* count of heart beat intervals for connecting */
-static uint32_t s_pkt_cnt = 0;                                /* count of packets */
-static esp_avrc_rn_evt_cap_mask_t s_avrc_peer_rn_cap;         /* AVRC target notification event capability bit mask */
-static TimerHandle_t s_tmr;                                   /* handle of heart beat timer */
-
-static const char remote_device_name[] = "Infinity Glide 510";
 
 /*********************************
  * STATIC FUNCTION DEFINITIONS
@@ -721,18 +722,10 @@ static void bt_app_av_state_connected_hdlr(uint16_t event, void *param)
         a2d = (esp_a2d_cb_param_t *)(param);
         if (ESP_A2D_AUDIO_STATE_STARTED == a2d->audio_stat.state) {
             s_pkt_cnt = 0;
-            // ESP_LOGI("TEST", "A2DP streaming started");
-            // audio_player_start("/sdcard/test_00.wav");
             ESP_LOGI("BT", "A2DP streaming started");
-            xEventGroupSetBits(audio_evt_grp, EVT_A2DP_STREAMING);
         }
         else if (a2d->audio_stat.state == ESP_A2D_AUDIO_STATE_STOPPED) {
-            // ESP_LOGI("TEST", "A2DP streaming stopped");
-            // audio_player_stop();
             ESP_LOGI("BT", "A2DP streaming stopped");
-            xEventGroupClearBits(audio_evt_grp, EVT_A2DP_STREAMING);
-            xEventGroupClearBits(audio_evt_grp, EVT_AUDIO_PLAYING);
-            audio_player_stop();
         }
         break;
     }
