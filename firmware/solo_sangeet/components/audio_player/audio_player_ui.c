@@ -1,4 +1,3 @@
-#include "lvgl.h"
 #include "audio_player.h"
 
 static const char *TAG = "AUDIO_UI";
@@ -89,9 +88,11 @@ static void player_btn_event_cb(lv_event_t *e)
     }
 }
 
-void audio_player_ui_init(void)
-{ 
-    lv_obj_t *scr = lv_obj_create(NULL);
+void audio_player_ui_init(lv_disp_t *disp)
+{
+    ui_player_style_init();
+    
+    lv_obj_t *scr = lv_display_get_screen_active(disp);
     lv_obj_add_style(scr, &style_bg, 0);
     lv_scr_load(scr);
 

@@ -9,6 +9,7 @@
 #include "freertos/task.h"
 #include "freertos/ringbuf.h"
 #include "freertos/event_groups.h"
+#include "lvgl.h"
 
 extern EventGroupHandle_t audio_evt_grp;
 
@@ -52,7 +53,7 @@ bool audio_player_is_playing(void);
 void audio_reader_task(void *arg);
 void audio_control_task(void *arg);
 
-void audio_player_ui_init(void);
+void audio_player_ui_init(lv_disp_t *disp);
 
 typedef void (*audio_player_event_cb_t)(void);
 void audio_player_register_eof_cb(audio_player_event_cb_t cb);

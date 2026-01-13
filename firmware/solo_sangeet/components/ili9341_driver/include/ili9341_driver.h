@@ -31,7 +31,7 @@ extern spi_device_handle_t ili9341_spi;
 #define ILI9341_DISP_VER_RES            320
 #define ILI9341_DISPLAY_SIZE            (ILI9341_DISP_HOR_RES * ILI9341_DISP_VER_RES)
 #define ILI9341_DISPLAY_BUFFER_SIZE     (ILI9341_DISP_VER_RES * sizeof(uint16_t))
-
+#define ILI9341_LVGL_DRAW_BUF_LINES     20
 /*
 * ILI9341 command definitions
 * These are used to control various functions of the display

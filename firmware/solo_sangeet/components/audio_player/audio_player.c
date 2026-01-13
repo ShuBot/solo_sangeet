@@ -28,6 +28,7 @@ void audio_player_init(void)
     audio_rb = xRingbufferCreate(AUDIO_RINGBUF_SIZE, RINGBUF_TYPE_BYTEBUF);
     configASSERT(audio_rb);
 
+    // Start audio control task
     xTaskCreate(audio_control_task, "audio_ctrl", 4096, NULL, 6, NULL);
 
     playing = false;
