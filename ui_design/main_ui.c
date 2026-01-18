@@ -1,6 +1,4 @@
-#include "audio_player.h"
-
-static const char *TAG = "AUDIO_UI";
+#include "lvgl.h"
 
 // UI Styles
 lv_style_t style_bg;
@@ -34,17 +32,17 @@ void ui_player_style_init(void)
 
 static void ui_play_cb(lv_event_t *e)
 {
-    ESP_LOGI(TAG, "Audio playback started");
-    audio_cmd_t cmd = AUDIO_CMD_PLAY;
-    xQueueSend(audio_cmd_q, &cmd, 0);
+    // ESP_LOGI(TAG, "Audio playback started");
+    // audio_cmd_t cmd = AUDIO_CMD_PLAY;
+    // xQueueSend(audio_cmd_q, &cmd, 0);
 
 }
 
 static void ui_pause_cb(lv_event_t *e)
 {
-    ESP_LOGI(TAG, "Audio playback paused");
-    audio_cmd_t cmd = AUDIO_CMD_PAUSE;
-    xQueueSend(audio_cmd_q, &cmd, 0);
+    // ESP_LOGI(TAG, "Audio playback paused");
+    // audio_cmd_t cmd = AUDIO_CMD_PAUSE;
+    // xQueueSend(audio_cmd_q, &cmd, 0);
 
 }
 
@@ -58,7 +56,7 @@ void ui_reset_play_button(void)
     // Optional: change icon back to PLAY
     lv_label_set_text(icon_play, LV_SYMBOL_PLAY);
 
-    ESP_LOGI(TAG, "Play button reset after EOF");
+    // ESP_LOGI(TAG, "Play button reset after EOF");
 }
 
 static void player_btn_event_cb(lv_event_t *e)
@@ -88,11 +86,12 @@ static void player_btn_event_cb(lv_event_t *e)
     }
 }
 
-void audio_player_ui_init(void)
+void audio_player_ui_init()
 {
     ui_player_style_init();
     
     lv_obj_t *scr = lv_scr_act();
+    // lv_display_get_screen_active(disp);
     lv_obj_add_style(scr, &style_bg, 0);
     lv_scr_load(scr);
 
@@ -141,3 +140,26 @@ void audio_player_ui_init(void)
     lv_obj_center(icon_next);
 
 }
+
+#ifdef LVGL_LIVE_PREVIEW
+
+void lvgl_live_preview_init(void)
+{
+    /*
+    lv_obj_t * label = lv_label_create(lv_scr_act());
+    lv_label_set_text(label, "Hello LVGL Live Preview!");
+    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+
+    lv_obj_t * btn = lv_btn_create(lv_scr_act());
+    lv_obj_align(btn, LV_ALIGN_BOTTOM_MID, 0, -30);
+    lv_obj_set_size(btn, 120, 50);
+    
+    lv_obj_t * btn_label = lv_label_create(btn);
+    lv_label_set_text(btn_label, "Click Me");
+    lv_obj_center(btn_label);
+    */
+    
+    audio_player_ui_init();
+}
+
+#endif /* LVGL_LIVE_PREVIEW */

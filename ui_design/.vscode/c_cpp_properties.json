@@ -7,14 +7,15 @@
                 "/home/shubham/.config/Code/User/globalStorage/themastercoder007.lvgl-live-preview/lvgl/9.4.0",
                 "/home/shubham/.config/Code/User/globalStorage/themastercoder007.lvgl-live-preview/lvgl/9.4.0/src"
             ],
-            "defines": [],
-            "compilerPath": "/usr/bin/gcc",
-            "cStandard": "c17",
-            "cppStandard": "gnu++17",
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "cStandard": "c11",
+            "cppStandard": "c++17",
             "intelliSenseMode": "linux-gcc-x64",
-            "compileCommands": [
-                "/home/shubham/Projects/solo_sangeet/firmware/solo_sangeet/build/compile_commands.json"
-            ]
+            "compilerPath": "/usr/bin/gcc"
         }
     ],
     "version": 4
