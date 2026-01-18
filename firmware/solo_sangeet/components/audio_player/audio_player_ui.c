@@ -1,4 +1,5 @@
 #include "audio_player.h"
+#include "ili9341_driver.h"
 
 static const char *TAG = "AUDIO_UI";
 
@@ -8,6 +9,7 @@ static lv_obj_t * menu_scr;
 
 /* Pages */
 static lv_obj_t * page_home;
+static lv_obj_t * page_options;
 static lv_obj_t * page_bt;
 static lv_obj_t * page_wifi;
 static lv_obj_t * music_scr;
@@ -45,6 +47,25 @@ void ui_player_style_init(void)
     lv_style_init(&style_play);
     lv_style_set_bg_color(&style_play, lv_color_hex(0xFF4081));
     lv_style_set_bg_opa(&style_play, LV_OPA_COVER);
+}
+
+static void menu_item_vertical(lv_obj_t * cont)
+{
+    /* Make container vertical */
+    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
+
+    /* Center content */
+    lv_obj_set_flex_align(
+        cont,
+        LV_FLEX_ALIGN_CENTER,
+        LV_FLEX_ALIGN_CENTER,
+        LV_FLEX_ALIGN_CENTER
+    );
+
+    /* Touch-friendly size */
+    lv_obj_set_height(cont, 90);
+    lv_obj_set_style_pad_ver(cont, 12, 0);
+    lv_obj_set_style_pad_hor(cont, 16, 0);
 }
 
 static void ui_play_cb(lv_event_t *e)
@@ -177,6 +198,20 @@ static void music_open_cb(lv_event_t * e)
     lv_scr_load_anim(music_scr, LV_SCR_LOAD_ANIM_NONE, 0, 0, false);
 }
 
+static void brightness_cb(lv_event_t * e)
+{
+    int val = lv_slider_get_value(lv_event_get_target(e));
+    ESP_LOGI(TAG, "Brightness: %d", val);
+    ili9341_set_brightness(val);
+}
+
+static void volume_cb(lv_event_t * e)
+{
+    int val = lv_slider_get_value(lv_event_get_target(e));
+    ESP_LOGI(TAG, "Volume: %d", val);
+    // audio_set_volume(val);
+}
+
 /* ------------------ Page creators ------------------ */
 static void menu_item_make_touch_friendly(lv_obj_t * cont)
 {
@@ -208,6 +243,44 @@ static lv_obj_t * create_home_page(lv_obj_t * menu)
     menu_item_make_touch_friendly(cont_wifi);
     lv_label_set_text(lv_label_create(cont_wifi), "WiFi");
     lv_menu_set_load_page_event(menu, cont_wifi, page_wifi);
+
+    return page;
+}
+
+static lv_obj_t * create_options_page(lv_obj_t * menu)
+{
+    lv_obj_t * page = lv_menu_page_create(menu, "Options");
+    lv_obj_t * section = lv_menu_section_create(page);
+
+    /* ---------- Brightness ---------- */
+    lv_obj_t * cont_bright = lv_menu_cont_create(section);
+    menu_item_vertical(cont_bright);
+
+    lv_obj_t * lbl_bright = lv_label_create(cont_bright);
+    lv_label_set_text(lbl_bright, "Display Brightness");
+    lv_obj_set_style_text_align(lbl_bright, LV_TEXT_ALIGN_CENTER, 0);
+
+    lv_obj_t * slider_bright = lv_slider_create(cont_bright);
+    lv_slider_set_range(slider_bright, 1, 100);
+    lv_slider_set_value(slider_bright, init_brightness, LV_ANIM_OFF);
+    lv_obj_set_width(slider_bright, LV_PCT(80));
+    // Setup Callback
+    lv_obj_add_event_cb(slider_bright, brightness_cb, LV_EVENT_VALUE_CHANGED, NULL);
+
+    /* ---------- Volume ---------- */
+    lv_obj_t * cont_vol = lv_menu_cont_create(section);
+    menu_item_vertical(cont_vol);
+
+    lv_obj_t * lbl_vol = lv_label_create(cont_vol);
+    lv_label_set_text(lbl_vol, "System Volume");
+    lv_obj_set_style_text_align(lbl_vol, LV_TEXT_ALIGN_CENTER, 0);
+
+    lv_obj_t * slider_vol = lv_slider_create(cont_vol);
+    lv_slider_set_range(slider_vol, 0, 100);
+    lv_slider_set_value(slider_vol, 50, LV_ANIM_OFF);
+    lv_obj_set_width(slider_vol, LV_PCT(80));
+    // Setup Callback
+    lv_obj_add_event_cb(slider_vol, volume_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
     return page;
 }
@@ -278,12 +351,18 @@ static void nav_menu_cb(lv_event_t * e)
 static void nav_options_cb(lv_event_t * e)
 {
     LV_UNUSED(e);
-    LV_LOG_USER("Options pressed (settings page later)");
+    
+    /* Make sure we're on menu screen */
+    if(lv_scr_act() != menu_scr) {
+        lv_scr_load_anim(menu_scr, LV_SCR_LOAD_ANIM_NONE, 0, 0, false);
+    }
+
+    lv_menu_set_page(menu, page_options);
 }
 
 void create_bottom_nav(lv_obj_t * parent)
 {
-    int btn_height = 20;
+    int btn_height = 30;
     int btn_length = 80;
 
     /* OPTIONS */
@@ -326,6 +405,7 @@ void audio_player_ui_init(lv_disp_t *disp)
     page_bt   = create_bt_page(menu);
     page_wifi = create_wifi_page(menu);
     page_home = create_home_page(menu);
+    page_options = create_options_page(menu);
 
     /* Set root page */
     lv_menu_set_page(menu, page_home);

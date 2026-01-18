@@ -9,6 +9,8 @@
 
 static uint16_t *dma_fill_buf = NULL;
 
+int init_brightness = 80; // Default brightness percentage
+
 spi_device_handle_t ili9341_spi;
 
 void ili9341_alloc_dma_buffers(void)
@@ -90,6 +92,37 @@ void ili9341_send_data_bytes(uint16_t *data, size_t len)
     spi_device_transmit(ili9341_spi, &t);
 }
 
+void ili9341_backlight_setup(void)
+{
+    ledc_timer_config_t timer = {
+        .speed_mode       = LEDC_LOW_SPEED_MODE,
+        .timer_num        = LCD_BL_TIMER,
+        .duty_resolution  = LEDC_TIMER_12_BIT, // 0–4095
+        .freq_hz          = 10000,              // 10 kHz
+        .clk_cfg          = LEDC_AUTO_CLK
+    };
+    ledc_timer_config(&timer);
+
+    ledc_channel_config_t channel = {
+        .gpio_num   = ILI9341_PIN_BL,
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .channel    = LCD_BL_CH,
+        .timer_sel  = LCD_BL_TIMER,
+        .duty       = 0,   // start OFF
+        .hpoint     = 0
+    };
+    ledc_channel_config(&channel);
+}
+
+void ili9341_set_brightness(uint8_t percent)
+{
+    if (percent > 100) percent = 100;
+
+    uint32_t duty = (4095 * percent) / 100; // 12-bit
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LCD_BL_CH, duty);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LCD_BL_CH);
+}
+
 void ili9341_set_display_backlight(bool state)
 {
     // Trun On/Off the display Backlight
@@ -100,6 +133,9 @@ void ili9341_set_display_backlight(bool state)
 void ili9341_init() {
     // Configure SPI
     ili9341_spi_config();
+
+    // Backlight Pin setup
+    ili9341_backlight_setup();
 
     // Basic init sequence (from ILI9341 datasheet)
     ili9341_send_command(0xEF);
@@ -214,7 +250,7 @@ void ili9341_init() {
     ili9341_send_command(ILI9341_DISPON);
     
     // Trun On the display Backlight
-    ili9341_set_display_backlight(true);
+    ili9341_set_brightness(init_brightness); // 80%
 
     ili9341_alloc_dma_buffers();
 }

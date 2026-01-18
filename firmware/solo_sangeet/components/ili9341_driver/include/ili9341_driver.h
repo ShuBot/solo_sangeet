@@ -3,6 +3,7 @@
 
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
+#include "driver/ledc.h"
 
 extern spi_device_handle_t ili9341_spi;
 
@@ -17,6 +18,9 @@ extern spi_device_handle_t ili9341_spi;
 #define ILI9341_PIN_DC   2      // VSPI - 2   HSPI - 27
 // #define ILI9341_PIN_RST  -1     // Connected to the ESP RESET/EN Pin in Elecro 2.8 inch Display
 #define ILI9341_PIN_BL   27
+
+#define LCD_BL_CH     LEDC_CHANNEL_0
+#define LCD_BL_TIMER  LEDC_TIMER_0
 
 /*
     SPI Settings
@@ -190,6 +194,9 @@ typedef enum {
     ILI9341_ROTATION_180,
     ILI9341_ROTATION_270
 } ili9341_rotation_t;
+
+extern int init_brightness; // Display brightness percentage
+
 /*
 * Function definitions for the ILI9341 driver
 * These functions handle SPI communication and display initialization
@@ -200,7 +207,9 @@ void ili9341_send_command(uint8_t cmd);
 void ili9341_send_data(uint8_t data);
 void ili9341_send_data_bytes(uint16_t *data, size_t len);
 void ili9341_init();
+void ili9341_backlight_setup(void);
 void ili9341_set_display_backlight(bool state);
+void ili9341_set_brightness(uint8_t percent);
 esp_err_t ili9341_set_rotation(ili9341_rotation_t rotation);
 void ili9341_set_address_window(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);
 
