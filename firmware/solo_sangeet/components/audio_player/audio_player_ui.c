@@ -2,6 +2,17 @@
 
 static const char *TAG = "AUDIO_UI";
 
+/* ------------------ Globals ------------------ */
+static lv_obj_t * menu;
+static lv_obj_t * menu_scr;
+
+/* Pages */
+static lv_obj_t * page_home;
+static lv_obj_t * page_bt;
+static lv_obj_t * page_wifi;
+static lv_obj_t * music_scr;
+
+/* ------------------ Audio Player UI ------------------ */
 // UI Styles
 lv_style_t style_bg;
 lv_style_t style_title;
@@ -16,6 +27,10 @@ static lv_obj_t *btn_next;
 static lv_obj_t *btn_prev;
 
 static bool is_playing = false;
+
+// Global function declarations
+void audio_player_page_create(lv_obj_t * scr);
+void create_bottom_nav(lv_obj_t * parent);
 
 void ui_player_style_init(void)
 {
@@ -88,11 +103,12 @@ static void player_btn_event_cb(lv_event_t *e)
     }
 }
 
-void audio_player_ui_init(void)
+/* ------------------ Event callbacks ------------------ */
+// Music player UI
+void audio_player_page_create(lv_obj_t * scr)
 {
     ui_player_style_init();
-    
-    lv_obj_t *scr = lv_scr_act();
+    // lv_obj_t *scr = lv_scr_act();
     lv_obj_add_style(scr, &style_bg, 0);
     lv_scr_load(scr);
 
@@ -106,12 +122,12 @@ void audio_player_ui_init(void)
     bar_progress = lv_bar_create(scr);
     lv_obj_set_size(bar_progress, 200, 6);
     lv_bar_set_range(bar_progress, 0, 100);
-    lv_obj_align(bar_progress, LV_ALIGN_CENTER, 0, 20);
+    lv_obj_align(bar_progress, LV_ALIGN_CENTER, 0, 0);
 
     /* --- PREV button --- */
     btn_prev = lv_btn_create(scr);
     lv_obj_set_size(btn_prev, 48, 48);
-    lv_obj_align(btn_prev, LV_ALIGN_CENTER, -80, 70);
+    lv_obj_align(btn_prev, LV_ALIGN_CENTER, -80, 50);
     lv_obj_add_event_cb(btn_prev, player_btn_event_cb, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *icon_prev = lv_label_create(btn_prev);
@@ -122,7 +138,7 @@ void audio_player_ui_init(void)
     btn_play = lv_btn_create(scr);
     lv_obj_set_size(btn_play, 64, 64);
     lv_obj_add_style(btn_play, &style_play, 0);
-    lv_obj_align(btn_play, LV_ALIGN_CENTER, 0, 70);
+    lv_obj_align(btn_play, LV_ALIGN_CENTER, 0, 50);
     lv_obj_set_style_radius(btn_play, LV_RADIUS_CIRCLE, 0);
     lv_obj_add_event_cb(btn_play, player_btn_event_cb, LV_EVENT_CLICKED, NULL);
 
@@ -133,11 +149,190 @@ void audio_player_ui_init(void)
     /* --- NEXT button --- */
     btn_next = lv_btn_create(scr);
     lv_obj_set_size(btn_next, 48, 48);
-    lv_obj_align(btn_next, LV_ALIGN_CENTER, 80, 70);
+    lv_obj_align(btn_next, LV_ALIGN_CENTER, 80, 50);
     lv_obj_add_event_cb(btn_next, player_btn_event_cb, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *icon_next = lv_label_create(btn_next);
     lv_label_set_text(icon_next, LV_SYMBOL_NEXT);
     lv_obj_center(icon_next);
 
+    // Nav Bar for music screen
+    create_bottom_nav(music_scr);
+}
+
+static void music_player_create(void)
+{
+    music_scr = lv_obj_create(NULL);   // NEW SCREEN
+    lv_obj_clear_flag(music_scr, LV_OBJ_FLAG_SCROLLABLE);
+
+    // Create audio player UI on this screen
+    audio_player_page_create(music_scr);
+}
+
+/* Music player will be a full screen later */
+static void music_open_cb(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    if(!music_scr) { music_player_create(); }
+    lv_scr_load_anim(music_scr, LV_SCR_LOAD_ANIM_NONE, 0, 0, false);
+}
+
+/* ------------------ Page creators ------------------ */
+static void menu_item_make_touch_friendly(lv_obj_t * cont)
+{
+    lv_obj_set_style_pad_ver(cont, 14, 0);
+    lv_obj_set_style_pad_hor(cont, 16, 0);
+    lv_obj_set_height(cont, 60);
+}
+
+static lv_obj_t * create_home_page(lv_obj_t * menu)
+{
+    lv_obj_t * page = lv_menu_page_create(menu, "Home");
+    lv_obj_t * section = lv_menu_section_create(page);
+    
+    /* Bluetooth */
+    lv_obj_t * cont_bt = lv_menu_cont_create(section);
+    menu_item_make_touch_friendly(cont_bt);
+    lv_label_set_text(lv_label_create(cont_bt), "Bluetooth  " LV_SYMBOL_BLUETOOTH );
+    lv_menu_set_load_page_event(menu, cont_bt, page_bt);
+
+    /* Music */
+    lv_obj_t * cont_music = lv_menu_cont_create(section);
+    menu_item_make_touch_friendly(cont_music);
+    lv_label_set_text(lv_label_create(cont_music), "Music Player");
+    lv_obj_add_flag(cont_music, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(cont_music, music_open_cb, LV_EVENT_PRESSED, NULL);
+
+    /* WiFi */
+    lv_obj_t * cont_wifi = lv_menu_cont_create(section);
+    menu_item_make_touch_friendly(cont_wifi);
+    lv_label_set_text(lv_label_create(cont_wifi), "WiFi");
+    lv_menu_set_load_page_event(menu, cont_wifi, page_wifi);
+
+    return page;
+}
+
+static lv_obj_t * create_bt_page(lv_obj_t * menu)
+{
+    lv_obj_t * page = lv_menu_page_create(menu, "Bluetooth");
+    lv_obj_t * section = lv_menu_section_create(page);
+
+    lv_obj_t * cont = lv_menu_cont_create(section);
+    lv_label_set_text(lv_label_create(cont), "Scan Devices");
+
+    /* Dummy items (replace later with scan results) */
+    lv_obj_t * list = lv_list_create(page);
+    lv_obj_set_size(list, LV_PCT(100), LV_PCT(70));
+    lv_obj_align(list, LV_ALIGN_BOTTOM_MID, 0, -5);
+
+    lv_list_add_btn(list, LV_SYMBOL_AUDIO, "JBL Speaker");
+    lv_list_add_btn(list, LV_SYMBOL_AUDIO, "Sony Headphones");
+
+    return page;
+}
+
+static lv_obj_t * create_wifi_page(lv_obj_t * menu)
+{
+    lv_obj_t * page = lv_menu_page_create(menu, "WiFi");
+    lv_obj_t * section = lv_menu_section_create(page);
+
+    lv_obj_t * cont = lv_menu_cont_create(section);
+    lv_label_set_text(lv_label_create(cont), "Scan Networks");
+
+    lv_obj_t * list = lv_list_create(page);
+    lv_obj_set_size(list, LV_PCT(100), LV_PCT(70));
+    lv_obj_align(list, LV_ALIGN_BOTTOM_MID, 0, -5);
+
+    lv_list_add_btn(list, LV_SYMBOL_WIFI, "Home_WiFi");
+    lv_list_add_btn(list, LV_SYMBOL_WIFI, "Office_AP");
+
+    return page;
+}
+
+
+static void nav_back_cb(lv_event_t * e)
+{
+    LV_UNUSED(e);
+
+    /* If music screen is active → go back to menu */
+    if(lv_scr_act() == music_scr) {
+        lv_scr_load_anim(menu_scr, LV_SCR_LOAD_ANIM_NONE, 0, 0, false);
+        return;
+    }
+
+    /* If inside menu → go to home page */
+    lv_menu_set_page(menu, page_home);
+}
+
+static void nav_menu_cb(lv_event_t * e)
+{
+    LV_UNUSED(e);
+
+    if(lv_scr_act() != menu_scr) {
+        lv_scr_load_anim(menu_scr, LV_SCR_LOAD_ANIM_NONE, 0, 0, false);
+    }
+
+    lv_menu_set_page(menu, page_home);
+}
+
+static void nav_options_cb(lv_event_t * e)
+{
+    LV_UNUSED(e);
+    LV_LOG_USER("Options pressed (settings page later)");
+}
+
+void create_bottom_nav(lv_obj_t * parent)
+{
+    int btn_height = 20;
+    int btn_length = 80;
+
+    /* OPTIONS */
+    lv_obj_t * btn_opt = lv_btn_create(parent);
+    lv_obj_set_size(btn_opt, btn_length, btn_height);
+    lv_obj_set_align(btn_opt, LV_ALIGN_BOTTOM_LEFT);
+    lv_obj_add_event_cb(btn_opt, nav_options_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t * btn_opt_label = lv_label_create(btn_opt);
+    lv_label_set_text(btn_opt_label, " " LV_SYMBOL_SETTINGS " ");
+    lv_obj_align_to(btn_opt_label, btn_opt, LV_ALIGN_CENTER, 0, 0);
+
+    /* MENU (Home) */
+    lv_obj_t * btn_menu = lv_btn_create(parent);
+    lv_obj_set_size(btn_menu, btn_length, btn_height);
+    lv_obj_set_align(btn_menu, LV_ALIGN_BOTTOM_MID);
+    lv_obj_add_event_cb(btn_menu, nav_menu_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t * btn_menu_label = lv_label_create(btn_menu);
+    lv_label_set_text(btn_menu_label, " " LV_SYMBOL_HOME " ");
+    lv_obj_align_to(btn_menu_label, btn_menu, LV_ALIGN_CENTER, 0, 0);
+
+    /* BACK */
+    lv_obj_t * btn_back = lv_btn_create(parent);
+    lv_obj_set_size(btn_back, btn_length, btn_height);
+    lv_obj_set_align(btn_back, LV_ALIGN_BOTTOM_RIGHT);
+    lv_obj_add_event_cb(btn_back, nav_back_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t * btn_back_label = lv_label_create(btn_back);
+    lv_label_set_text(btn_back_label, "  " LV_SYMBOL_LEFT " ");
+    lv_obj_align_to(btn_back_label, btn_back, LV_ALIGN_CENTER, 0, 0);
+}
+
+void audio_player_ui_init(lv_disp_t *disp)
+{
+    /* Create menu */
+    menu_scr = lv_display_get_screen_active(disp);
+    menu = lv_menu_create(menu_scr);
+    lv_obj_set_size(menu, LV_PCT(100), LV_PCT(100));
+    lv_obj_center(menu);
+
+    /* Create pages */
+    page_bt   = create_bt_page(menu);
+    page_wifi = create_wifi_page(menu);
+    page_home = create_home_page(menu);
+
+    /* Set root page */
+    lv_menu_set_page(menu, page_home);
+
+    // Hide lv_menu main header
+    lv_obj_set_height(lv_menu_get_main_header(menu), 0);
+    
+    // Nav bar
+    create_bottom_nav(menu_scr);
 }
