@@ -3,8 +3,16 @@
 /* ------------------ Globals ------------------ */
 static lv_obj_t * menu;
 static lv_obj_t * menu_scr;
-static lv_obj_t * bottom_bar;
+static lv_obj_t * top_bar;
+static lv_obj_t * label_battery;
+static lv_obj_t * label_wifi;
+static lv_obj_t * label_bt;
+
 static void create_bottom_nav(lv_obj_t * parent);
+static void create_top_status_bar(lv_obj_t * parent);
+void ui_set_battery_level(uint8_t percent);
+void ui_set_wifi(bool connected);
+void ui_set_bt(bool connected);
 
 /* Pages */
 static lv_obj_t * page_home;
@@ -171,6 +179,13 @@ void audio_player_page_create(lv_obj_t * scr)
 
     // Add bottom nav to music screen
     create_bottom_nav(music_scr);
+    // Add top status bar to music screen
+    create_top_status_bar(music_scr);
+
+    ui_set_battery_level(73);
+    ui_set_wifi(true);
+    ui_set_bt(false);
+
 }
 
 /* ------------------ Event callbacks ------------------ */
@@ -202,6 +217,37 @@ static void volume_cb(lv_event_t * e)
 {
     int val = lv_slider_get_value(lv_event_get_target(e));
     LV_LOG_USER("Volume: %d", val);
+}
+
+void ui_set_battery_level(uint8_t percent)
+{
+    if(percent > 80) {
+        lv_label_set_text(label_battery, LV_SYMBOL_BATTERY_FULL);
+    }
+    else if(percent > 60) {
+        lv_label_set_text(label_battery, LV_SYMBOL_BATTERY_3);
+    }
+    else if(percent > 40) {
+        lv_label_set_text(label_battery, LV_SYMBOL_BATTERY_2);
+    }
+    else if(percent > 20) {
+        lv_label_set_text(label_battery, LV_SYMBOL_BATTERY_1);
+    }
+    else {
+        lv_label_set_text(label_battery, LV_SYMBOL_BATTERY_EMPTY);
+    }
+}
+
+void ui_set_wifi(bool connected)
+{
+    lv_label_set_text(label_wifi,
+        connected ? LV_SYMBOL_WIFI : LV_SYMBOL_CLOSE);
+}
+
+void ui_set_bt(bool connected)
+{
+    lv_label_set_text(label_bt,
+        connected ? LV_SYMBOL_BLUETOOTH : LV_SYMBOL_CLOSE);
 }
 
 /* ------------------ Page creators ------------------ */
@@ -384,6 +430,46 @@ static void create_bottom_nav(lv_obj_t * parent)
     lv_obj_align_to(btn_back_label, btn_back, LV_ALIGN_CENTER, 0, 0);
 }
 
+static void create_top_status_bar(lv_obj_t * parent)
+{
+    top_bar = lv_obj_create(parent);
+    lv_obj_set_size(top_bar, LV_PCT(100), 36);
+    lv_obj_align(top_bar, LV_ALIGN_TOP_MID, 0, 0);
+
+    lv_obj_clear_flag(top_bar, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(top_bar, lv_color_hex(0x202020), 0);
+    lv_obj_set_style_pad_hor(top_bar, 10, 0);
+    lv_obj_set_style_pad_ver(top_bar, 4, 0);
+
+    /* Flex layout: left → right */
+    lv_obj_set_flex_flow(top_bar, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(
+        top_bar,
+        LV_FLEX_ALIGN_SPACE_BETWEEN,
+        LV_FLEX_ALIGN_CENTER,
+        LV_FLEX_ALIGN_CENTER
+    );
+
+    // LEFT container to occupy space
+    lv_obj_t * left = lv_obj_create(top_bar);
+    lv_obj_clear_flag(left, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_opa(left, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(left, 0, 0);
+
+    label_wifi = lv_label_create(top_bar);
+    lv_label_set_text(label_wifi, LV_SYMBOL_WIFI);
+    lv_obj_set_style_text_color(label_wifi, lv_color_white(), 0);
+
+    label_bt = lv_label_create(top_bar);
+    lv_label_set_text(label_bt, LV_SYMBOL_BLUETOOTH);
+    lv_obj_set_style_text_color(label_bt, lv_color_white(), 0);
+
+    /* RIGHT: Battery */
+    label_battery = lv_label_create(top_bar);
+    lv_label_set_text(label_battery, LV_SYMBOL_BATTERY_FULL);
+    lv_obj_set_style_text_color(label_battery, lv_color_white(), 0);
+}
+
 #ifdef LVGL_LIVE_PREVIEW
 
 void lvgl_live_preview_init(void)
@@ -406,7 +492,8 @@ void lvgl_live_preview_init(void)
     menu_scr = lv_scr_act();
     menu = lv_menu_create(menu_scr);
     lv_obj_set_size(menu, LV_PCT(100), LV_PCT(100));
-    lv_obj_set_style_pad_bottom(menu, 60, 0);
+    lv_obj_set_style_pad_top(menu, 36, 0);   // top bar height
+    lv_obj_set_style_pad_bottom(menu, 60, 0); // bottom bar height
     
     /* Create pages */
     page_bt   = create_bt_page(menu);
@@ -422,6 +509,8 @@ void lvgl_live_preview_init(void)
     
     // Nav bar
     create_bottom_nav(menu_scr);
+    // Top status bar
+    create_top_status_bar(menu_scr);
 }
 
 #endif /* LVGL_LIVE_PREVIEW */
