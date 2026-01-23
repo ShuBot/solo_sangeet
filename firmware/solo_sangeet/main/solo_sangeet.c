@@ -100,13 +100,13 @@ static void xpt2046_touchpad_read_cb(lv_indev_t * indev, lv_indev_data_t * data)
     data->state = LV_INDEV_STATE_PRESSED;
     data->point.x = x;
     data->point.y = y;
-    ESP_LOGI(TAG, "RAW X=%u  Y=%u State: PRESSED", data->point.x, data->point.y);
+    // ESP_LOGI(TAG, "RAW X=%u  Y=%u State: PRESSED", data->point.x, data->point.y);
     
     // Move the dot, for Touch Test UI
-    // if (touch_dot) {
-    //     lv_obj_clear_flag(touch_dot, LV_OBJ_FLAG_HIDDEN);
-    //     lv_obj_set_pos(touch_dot, x - 6, y - 6);
-    // }
+    if (touch_dot) {
+        lv_obj_clear_flag(touch_dot, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_pos(touch_dot, x - 6, y - 6);
+    }
 }
 
 /********************************************

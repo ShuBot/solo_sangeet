@@ -1,39 +1,9 @@
-#include <stdio.h>
-#include "bt_audio.h"
-
-/*
- * SPDX-FileCopyrightText: 2021-2024 Espressif Systems (Shanghai) CO LTD
- *
- * SPDX-License-Identifier: Unlicense OR CC0-1.0
- */
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <inttypes.h>
-#include <stdint.h>
-#include <stdbool.h>
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/FreeRTOSConfig.h"
-#include "freertos/queue.h"
-#include "freertos/timers.h"
-#include "nvs.h"
-#include "nvs_flash.h"
-#include "esp_system.h"
-#include "esp_log.h"
-
-#include "esp_bt.h"
-#include "esp_bt_main.h"
-#include "esp_bt_device.h"
-#include "esp_gap_bt_api.h"
-#include "esp_a2dp_api.h"
-#include "esp_avrc_api.h"
-
 #include "bt_audio.h"
 #include "audio_player.h"
+
+// Global variables shared with UI
+bt_scan_device_t s_bt_scan_list[MAX_BT_DEVICES];
+int s_bt_scan_count = 0;
 
 #define CONFIG_EXAMPLE_SSP_ENABLED      1
 
@@ -42,7 +12,7 @@
 #define BT_RC_CT_TAG          "RC_CT"
 
 /* device name */
-#define LOCAL_DEVICE_NAME     "ESP_A2DP_SRC"
+#define LOCAL_DEVICE_NAME     "SOLO_SANGEET"
 
 /* AVRCP used transaction label */
 #define APP_RC_CT_TL_GET_CAPS            (0)
@@ -123,7 +93,7 @@ static uint32_t s_pkt_cnt = 0;                                /* count of packet
 static esp_avrc_rn_evt_cap_mask_t s_avrc_peer_rn_cap;         /* AVRC target notification event capability bit mask */
 static TimerHandle_t s_tmr;                                   /* handle of heart beat timer */
 
-static const char remote_device_name[] = "MI Portable Bluetooth Speaker";
+// static const char remote_device_name[] = "MI Portable Bluetooth Speaker";
 
 /*********************************
  * STATIC FUNCTION DECLARATIONS
@@ -289,18 +259,62 @@ static bool get_name_from_eir(uint8_t *eir, uint8_t *bdname, uint8_t *bdname_len
     return false;
 }
 
+static void bt_connect_selected_device(uint16_t event, void *param)
+{
+    int index = *(int *)param;
+
+    if (index < 0 || index >= s_bt_scan_count) {
+        return;
+    }
+
+    ESP_LOGI(BT_AV_TAG, "Cancel device discovery ...");
+    esp_bt_gap_cancel_discovery();
+
+    ESP_LOGI(BT_AV_TAG, "Connecting to %s", s_peer_bdname);
+    memcpy(s_peer_bda, s_bt_scan_list[index].bda, ESP_BD_ADDR_LEN);
+}
+
+static void bt_app_copy_cb(void *p_dest, void *p_src, int len)
+{
+    if (p_dest && p_src && len > 0) {
+        memcpy(p_dest, p_src, len);
+    }
+}
+
+// User selects device from UI list
+void bt_user_select_device(int index)
+{
+    ESP_LOGI(BT_AV_TAG, "Connect to Device index: %d", index);
+
+    s_a2d_state = APP_AV_STATE_DISCOVERED;
+
+    bt_app_work_dispatch(
+        bt_app_av_sm_hdlr,
+        APP_AV_STATE_DISCOVERED,
+        &index,
+        sizeof(index),
+        bt_app_copy_cb);
+}
+
+static int bt_find_device_by_addr(const esp_bd_addr_t bda)
+{
+    for (int i = 0; i < s_bt_scan_count; i++) {
+        if (memcmp(s_bt_scan_list[i].bda, bda, ESP_BD_ADDR_LEN) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 static void filter_inquiry_scan_result(esp_bt_gap_cb_param_t *param)
 {
-    char bda_str[18];
-    uint32_t cod = 0;     /* class of device */
-    int32_t rssi = -129;  /* invalid value */
+    uint32_t cod = 0;     // class of device
+    int32_t rssi = -129;  // invalid value 
     uint8_t *eir = NULL;
-    esp_bt_gap_dev_prop_t *p;
 
-    /* handle the discovery results */
-    ESP_LOGI(BT_AV_TAG, "Scanned device: %s", bda2str(param->disc_res.bda, bda_str, 18));
     for (int i = 0; i < param->disc_res.num_prop; i++) {
-        p = param->disc_res.prop + i;
+        esp_bt_gap_dev_prop_t *p = param->disc_res.prop + i;
+
         switch (p->type) {
         case ESP_BT_GAP_DEV_PROP_COD:
             cod = *(uint32_t *)(p->val);
@@ -319,22 +333,41 @@ static void filter_inquiry_scan_result(esp_bt_gap_cb_param_t *param)
         }
     }
 
-    /* search for device with MAJOR service class as "rendering" in COD */
+    // search for device with MAJOR service class as "rendering" in COD
     if (!esp_bt_gap_is_valid_cod(cod) ||
             !(esp_bt_gap_get_cod_srvc(cod) & ESP_BT_COD_SRVC_RENDERING)) {
         return;
     }
 
-    /* search for target device in its Extended Inqury Response */
     if (eir) {
         get_name_from_eir(eir, s_peer_bdname, NULL);
-        if (strcmp((char *)s_peer_bdname, remote_device_name) == 0) {
-            ESP_LOGI(BT_AV_TAG, "Found a target device, address %s, name %s", bda_str, s_peer_bdname);
-            s_a2d_state = APP_AV_STATE_DISCOVERED;
-            memcpy(s_peer_bda, param->disc_res.bda, ESP_BD_ADDR_LEN);
-            ESP_LOGI(BT_AV_TAG, "Cancel device discovery ...");
-            esp_bt_gap_cancel_discovery();
-        }
+    }
+
+    int idx = bt_find_device_by_addr(param->disc_res.bda);
+
+    if (idx >= 0) {
+        // Already known device → update RSSI only
+        s_bt_scan_list[idx].rssi = rssi;
+        return;
+    }
+
+    // Store device if space available
+    if (s_bt_scan_count < MAX_BT_DEVICES) {
+        memcpy(s_bt_scan_list[s_bt_scan_count].bda,
+               param->disc_res.bda,
+               ESP_BD_ADDR_LEN);
+
+        strncpy(s_bt_scan_list[s_bt_scan_count].name,
+                (char *)s_peer_bdname, ESP_BT_GAP_MAX_BDNAME_LEN);
+
+        s_bt_scan_list[s_bt_scan_count].rssi = rssi;
+        s_bt_scan_list[s_bt_scan_count].in_use = true;
+
+        s_bt_scan_count++;
+
+        // Update Lisy in UI
+        ESP_LOGI(BT_AV_TAG, "BT Scan List Updated, %d devices found", s_bt_scan_count);
+        ui_bt_devices_updated(); // UI-safe signal
     }
 }
 
@@ -355,10 +388,10 @@ static void bt_app_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *pa
                 s_a2d_state = APP_AV_STATE_CONNECTING;
                 ESP_LOGI(BT_AV_TAG, "Device discovery stopped.");
                 ESP_LOGI(BT_AV_TAG, "a2dp connecting to peer: %s", s_peer_bdname);
-                /* connect source to peer device specified by Bluetooth Device Address */
+                // connect source to peer device specified by Bluetooth Device Address
                 esp_a2d_source_connect(s_peer_bda);
             } else {
-                /* not discovered, continue to discover */
+                // not discovered, continue to discover
                 ESP_LOGI(BT_AV_TAG, "Device discovery failed, continue to discover...");
                 esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY, 10, 0);
             }
@@ -487,32 +520,18 @@ static void bt_app_a2d_cb(esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param)
 
 /* generate some random noise to simulate source audio */
 static int32_t bt_app_a2d_data_cb(uint8_t *data, int32_t len)
-{
+{    
     if (data == NULL || len < 0) {
         return 0;
     }
-        
-    /*
-    int16_t *p_buf = (int16_t *)data;
-    for (int i = 0; i < (len >> 1); i++) {
-        p_buf[i] = rand() % (1 << 16);
-    }
-
-    return len;
-    */
- 
+     
     if (!audio_player_is_playing()) {
         memset(data, 0, len);
         return len;
     }
     
     size_t item_size;
-    uint8_t *item = (uint8_t *) xRingbufferReceiveUpTo(
-        audio_rb,
-        &item_size,
-        0,
-        len
-    );
+    uint8_t *item = (uint8_t *) xRingbufferReceiveUpTo(audio_rb, &item_size, 0, len);
 
     if (!item) {
         memset(data, 0, len);   // silence
@@ -525,7 +544,7 @@ static int32_t bt_app_a2d_data_cb(uint8_t *data, int32_t len)
     if (item_size < len) {
         memset(data + item_size, 0, len - item_size);
     }
-
+    
     return len;
 }
 
@@ -541,7 +560,9 @@ static void bt_app_av_sm_hdlr(uint16_t event, void *param)
     /* select handler according to different states */
     switch (s_a2d_state) {
     case APP_AV_STATE_DISCOVERING:
+        break;
     case APP_AV_STATE_DISCOVERED:
+        bt_connect_selected_device(event, param);
         break;
     case APP_AV_STATE_UNCONNECTED:
         bt_app_av_state_unconnected_hdlr(event, param);
@@ -602,6 +623,7 @@ static void bt_app_av_state_connecting_hdlr(uint16_t event, void *param)
         a2d = (esp_a2d_cb_param_t *)(param);
         if (a2d->conn_stat.state == ESP_A2D_CONNECTION_STATE_CONNECTED) {
             ESP_LOGI(BT_AV_TAG, "a2dp connected");
+            ui_set_bt(true);    // Update UI, BT Connected.
             s_a2d_state =  APP_AV_STATE_CONNECTED;
             s_media_state = APP_AV_MEDIA_STATE_IDLE;
         } else if (a2d->conn_stat.state == ESP_A2D_CONNECTION_STATE_DISCONNECTED) {
@@ -720,7 +742,7 @@ static void bt_app_av_state_connected_hdlr(uint16_t event, void *param)
     }
     case ESP_A2D_AUDIO_STATE_EVT: {
         a2d = (esp_a2d_cb_param_t *)(param);
-        if (ESP_A2D_AUDIO_STATE_STARTED == a2d->audio_stat.state) {
+        if (a2d->audio_stat.state == ESP_A2D_AUDIO_STATE_STARTED) {
             s_pkt_cnt = 0;
             ESP_LOGI("BT", "A2DP streaming started");
         }
@@ -759,6 +781,7 @@ static void bt_app_av_state_disconnecting_hdlr(uint16_t event, void *param)
         a2d = (esp_a2d_cb_param_t *)(param);
         if (a2d->conn_stat.state == ESP_A2D_CONNECTION_STATE_DISCONNECTED) {
             ESP_LOGI(BT_AV_TAG, "a2dp disconnected");
+            // ui_set_bt(false);   // Update UI, BT Disconnected.
             s_a2d_state =  APP_AV_STATE_UNCONNECTED;
         }
         break;

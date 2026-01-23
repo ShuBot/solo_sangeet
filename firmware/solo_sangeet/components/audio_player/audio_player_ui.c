@@ -1,5 +1,6 @@
 #include "audio_player.h"
 #include "ili9341_driver.h"
+#include "bt_audio.h"
 
 static const char *TAG = "AUDIO_UI";
 
@@ -18,6 +19,8 @@ static lv_obj_t * page_bt;
 static lv_obj_t * page_wifi;
 static lv_obj_t * music_scr;
 
+// BT List
+lv_obj_t * bt_list;
 /* ------------------ Audio Player UI ------------------ */
 // UI Styles
 lv_style_t style_bg;
@@ -38,9 +41,6 @@ static bool is_playing = false;
 void audio_player_page_create(lv_obj_t * scr);
 void create_bottom_nav(lv_obj_t * parent);
 void create_top_status_bar(lv_obj_t * parent);
-void ui_set_battery_level(uint8_t percent);
-void ui_set_wifi(bool connected);
-void ui_set_bt(bool connected);
 
 void ui_player_style_init(void)
 {
@@ -192,8 +192,8 @@ void audio_player_page_create(lv_obj_t * scr)
     
     // TODO: Remove later, for testing only.
     ui_set_battery_level(73);
-    ui_set_wifi(true);
-    ui_set_bt(false);
+    // ui_set_wifi(true);
+    // ui_set_bt(false);
 }
 
 static void music_player_create(void)
@@ -332,6 +332,31 @@ static lv_obj_t * create_options_page(lv_obj_t * menu)
     return page;
 }
 
+static void device_selected_cb(lv_event_t *e)
+{
+    lv_obj_t *btn = lv_event_get_target(e);
+    int index = (int)lv_obj_get_user_data(btn);
+
+    ESP_LOGI(TAG, "BT Button Pressed, index: %d", index);
+    bt_user_select_device(index);
+}
+
+void ui_bt_devices_updated(void)
+{
+    for (int i = 0; i < s_bt_scan_count; i++) {
+        
+        ESP_LOGI(TAG, "Updating BT List with: %s", s_bt_scan_list[i].name);
+
+        lv_obj_t *btn = lv_list_add_button(
+            bt_list,
+            LV_SYMBOL_AUDIO,
+            s_bt_scan_list[i].name);
+            
+        lv_obj_set_user_data(btn, (void *)i);
+        lv_obj_add_event_cb(btn, device_selected_cb, LV_EVENT_CLICKED, NULL);
+    }
+}
+
 static lv_obj_t * create_bt_page(lv_obj_t * menu)
 {
     lv_obj_t * page = lv_menu_page_create(menu, "Bluetooth");
@@ -341,12 +366,9 @@ static lv_obj_t * create_bt_page(lv_obj_t * menu)
     lv_label_set_text(lv_label_create(cont), "Scan Devices");
 
     /* Dummy items (replace later with scan results) */
-    lv_obj_t * list = lv_list_create(page);
-    lv_obj_set_size(list, LV_PCT(100), LV_PCT(70));
-    lv_obj_align(list, LV_ALIGN_BOTTOM_MID, 0, -5);
-
-    lv_list_add_btn(list, LV_SYMBOL_AUDIO, "JBL Speaker");
-    lv_list_add_btn(list, LV_SYMBOL_AUDIO, "Sony Headphones");
+    bt_list = lv_list_create(page);
+    lv_obj_set_size(bt_list, LV_PCT(100), LV_PCT(70));
+    lv_obj_align(bt_list, LV_ALIGN_BOTTOM_MID, 0, -5);
 
     return page;
 }
@@ -471,12 +493,12 @@ void create_top_status_bar(lv_obj_t * parent)
     lv_obj_set_style_text_color(label_wifi, lv_color_white(), 0);
 
     label_bt = lv_label_create(top_bar);
-    lv_label_set_text(label_bt, LV_SYMBOL_BLUETOOTH);
+    lv_label_set_text(label_bt, LV_SYMBOL_CLOSE);
     lv_obj_set_style_text_color(label_bt, lv_color_white(), 0);
 
     /* RIGHT: Battery */
     label_battery = lv_label_create(top_bar);
-    lv_label_set_text(label_battery, LV_SYMBOL_BATTERY_FULL);
+    lv_label_set_text(label_battery, LV_SYMBOL_BATTERY_EMPTY);
     lv_obj_set_style_text_color(label_battery, lv_color_white(), 0);
 }
 

@@ -59,5 +59,12 @@ typedef void (*audio_player_event_cb_t)(void);
 void audio_player_register_eof_cb(audio_player_event_cb_t cb);
 void ui_audio_eof_cb(void);
 void ui_reset_play_button(void);
+// BT UI
+void ui_bt_devices_updated(void);
+void ui_set_bt(bool connected);
+// WiFi UI
+void ui_set_wifi(bool connected);
+// Battery UI
+void ui_set_battery_level(uint8_t percent);
 
 #endif // AUDIO_PLAYER_H

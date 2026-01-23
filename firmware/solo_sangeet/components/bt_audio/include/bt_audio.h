@@ -4,6 +4,49 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <string.h>
+#include <inttypes.h>
+#include <stdint.h>
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/FreeRTOSConfig.h"
+#include "freertos/queue.h"
+#include "freertos/timers.h"
+#include "nvs.h"
+#include "nvs_flash.h"
+#include "esp_system.h"
+#include "esp_log.h"
+
+#include "esp_bt.h"
+#include "esp_bt_main.h"
+#include "esp_bt_device.h"
+#include "esp_gap_bt_api.h"
+#include "esp_a2dp_api.h"
+#include "esp_avrc_api.h"
+
+// BT Discovery
+typedef enum {
+    BT_APP_EVT_STACK_UP = 0,
+    BT_APP_EVT_SCAN_LIST_UPDATED,
+    BT_APP_EVT_CONNECT_DEVICE,
+} bt_app_evt_t;
+
+#define MAX_BT_DEVICES 10
+#define BT_NAME_LEN    32
+
+typedef struct {
+    esp_bd_addr_t bda;
+    char name[ESP_BT_GAP_MAX_BDNAME_LEN + 1];
+    int rssi;
+    bool in_use;
+} bt_scan_device_t;
+
+extern bt_scan_device_t s_bt_scan_list[MAX_BT_DEVICES];
+extern int s_bt_scan_count;
+
+// BT Discovery
 
 /* log tag */
 #define BT_APP_CORE_TAG             "BT_APP_CORE"
@@ -60,5 +103,7 @@ void bt_app_task_start_up(void);
 void bt_app_task_shut_down(void);
 
 void bt_audio_task(void);
+
+void bt_user_select_device(int index);
 
 #endif /* __BT_AUDIO_H__ */
