@@ -336,11 +336,13 @@ static lv_obj_t * create_options_page(lv_obj_t * menu)
 
     /* ---------- Brightness ---------- */
     lv_obj_t * cont_bright = lv_menu_cont_create(section);
+    ui_cont_apply_theme(cont_bright);
     menu_item_vertical(cont_bright);
 
     lv_obj_t * lbl_bright = lv_label_create(cont_bright);
     lv_label_set_text(lbl_bright, "Display Brightness");
     lv_obj_set_style_text_align(lbl_bright, LV_TEXT_ALIGN_CENTER, 0);
+    ui_cont_label_apply_theme(lbl_bright);
 
     lv_obj_t * slider_bright = lv_slider_create(cont_bright);
     lv_slider_set_range(slider_bright, 0, 100);
@@ -351,11 +353,13 @@ static lv_obj_t * create_options_page(lv_obj_t * menu)
 
     /* ---------- Volume ---------- */
     lv_obj_t * cont_vol = lv_menu_cont_create(section);
+    ui_cont_apply_theme(cont_vol);
     menu_item_vertical(cont_vol);
 
     lv_obj_t * lbl_vol = lv_label_create(cont_vol);
     lv_label_set_text(lbl_vol, "System Volume");
     lv_obj_set_style_text_align(lbl_vol, LV_TEXT_ALIGN_CENTER, 0);
+    ui_cont_label_apply_theme(lbl_vol);
 
     lv_obj_t * slider_vol = lv_slider_create(cont_vol);
     lv_slider_set_range(slider_vol, 0, 100);
