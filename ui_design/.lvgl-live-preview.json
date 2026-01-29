@@ -1,0 +1,9 @@
+{
+  "mainFile": "main_ui.c",
+  "dependencies": [
+    "ui_theme.c"
+  ],
+  "includePaths": [
+    "./include"
+  ]
+}
