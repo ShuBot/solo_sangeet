@@ -44,6 +44,8 @@ typedef enum {
     AUDIO_STATE_STOPPED,
 } audio_state_t;
 
+void log_mem(const char *tag);
+
 void audio_player_init(void);
 bool audio_player_start(const char *path);
 void audio_player_stop(void);

@@ -623,7 +623,7 @@ static void bt_app_av_state_connecting_hdlr(uint16_t event, void *param)
         a2d = (esp_a2d_cb_param_t *)(param);
         if (a2d->conn_stat.state == ESP_A2D_CONNECTION_STATE_CONNECTED) {
             ESP_LOGI(BT_AV_TAG, "a2dp connected");
-            ui_set_bt(true);    // Update UI, BT Connected.
+            // ui_set_bt(true);    // Update UI, BT Connected.
             s_a2d_state =  APP_AV_STATE_CONNECTED;
             s_media_state = APP_AV_MEDIA_STATE_IDLE;
         } else if (a2d->conn_stat.state == ESP_A2D_CONNECTION_STATE_DISCONNECTED) {

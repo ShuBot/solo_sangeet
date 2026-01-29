@@ -1,6 +1,7 @@
 #include "audio_player.h"
 #include "ili9341_driver.h"
 #include "bt_audio.h"
+#include "ss_ui_theme.h"
 
 static const char *TAG = "AUDIO_UI";
 
@@ -45,7 +46,7 @@ void create_top_status_bar(lv_obj_t * parent);
 void ui_player_style_init(void)
 {
     lv_style_init(&style_bg);
-    lv_style_set_bg_color(&style_bg, lv_color_hex(0x1E1E1E));
+    lv_style_set_bg_color(&style_bg, lv_color_black());
     lv_style_set_bg_opa(&style_bg, LV_OPA_COVER);
 
     lv_style_init(&style_title);
@@ -55,6 +56,36 @@ void ui_player_style_init(void)
     lv_style_init(&style_play);
     lv_style_set_bg_color(&style_play, lv_color_hex(0xFF4081));
     lv_style_set_bg_opa(&style_play, LV_OPA_COVER);
+}
+
+static void ui_cont_apply_theme(lv_obj_t * cont)
+{
+    lv_obj_add_style(cont, &style_cont_item, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(cont, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    // Border
+    lv_obj_set_style_border_side(cont, LV_BORDER_SIDE_FULL, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(cont, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_color(cont, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_opa(cont, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+}
+
+static void ui_cont_label_apply_theme(lv_obj_t * label)
+{
+    lv_obj_add_style(label, &style_cont_text, LV_PART_MAIN);
+    lv_obj_set_width(label, LV_PCT(100));
+    lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_LEFT, 0);
+}
+
+static void ui_list_apply_theme(lv_obj_t * list)
+{
+    lv_obj_add_style(list, &style_list_bg, LV_PART_MAIN);
+}
+
+static void ui_list_item_apply_theme(lv_obj_t * btn)
+{
+    lv_obj_add_style(btn, &style_list_item, LV_PART_MAIN);
+    lv_obj_add_style(lv_obj_get_child(btn, 1), &style_list_text, LV_PART_MAIN);
 }
 
 static void menu_item_vertical(lv_obj_t * cont)
@@ -194,6 +225,7 @@ void audio_player_page_create(lv_obj_t * scr)
     ui_set_battery_level(73);
     // ui_set_wifi(true);
     // ui_set_bt(false);
+    log_mem(TAG);
 }
 
 static void music_player_create(void)
@@ -262,8 +294,7 @@ void ui_set_bt(bool connected)
 /* ------------------ Page creators ------------------ */
 static void menu_item_make_touch_friendly(lv_obj_t * cont)
 {
-    lv_obj_set_style_pad_ver(cont, 14, 0);
-    lv_obj_set_style_pad_hor(cont, 16, 0);
+    lv_obj_set_style_pad_all(cont, 10, LV_PART_MAIN);
     lv_obj_set_height(cont, 60);
 }
 
@@ -271,24 +302,33 @@ static lv_obj_t * create_home_page(lv_obj_t * menu)
 {
     lv_obj_t * page = lv_menu_page_create(menu, "Home");
     lv_obj_t * section = lv_menu_section_create(page);
-    
+
     /* Bluetooth */
     lv_obj_t * cont_bt = lv_menu_cont_create(section);
+    ui_cont_apply_theme(cont_bt);
     menu_item_make_touch_friendly(cont_bt);
-    lv_label_set_text(lv_label_create(cont_bt), "Bluetooth  " LV_SYMBOL_BLUETOOTH );
+    lv_obj_t * bt_label = lv_label_create(cont_bt);
+    lv_label_set_text(bt_label, "Bluetooth  " LV_SYMBOL_BLUETOOTH);
+    ui_cont_label_apply_theme(bt_label);
     lv_menu_set_load_page_event(menu, cont_bt, page_bt);
 
     /* Music */
     lv_obj_t * cont_music = lv_menu_cont_create(section);
+    ui_cont_apply_theme(cont_music);
     menu_item_make_touch_friendly(cont_music);
-    lv_label_set_text(lv_label_create(cont_music), "Music Player");
+    lv_obj_t * music_label = lv_label_create(cont_music);
+    lv_label_set_text(music_label, "Music Player");
+    ui_cont_label_apply_theme(music_label);
     lv_obj_add_flag(cont_music, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(cont_music, music_open_cb, LV_EVENT_PRESSED, NULL);
 
     /* WiFi */
     lv_obj_t * cont_wifi = lv_menu_cont_create(section);
+    ui_cont_apply_theme(cont_wifi);
     menu_item_make_touch_friendly(cont_wifi);
-    lv_label_set_text(lv_label_create(cont_wifi), "WiFi");
+    lv_obj_t * wifi_label = lv_label_create(cont_wifi);
+    lv_label_set_text(wifi_label, "WiFi     " LV_SYMBOL_WIFI);
+    ui_cont_label_apply_theme(wifi_label);
     lv_menu_set_load_page_event(menu, cont_wifi, page_wifi);
 
     return page;
@@ -301,11 +341,13 @@ static lv_obj_t * create_options_page(lv_obj_t * menu)
 
     /* ---------- Brightness ---------- */
     lv_obj_t * cont_bright = lv_menu_cont_create(section);
+    ui_cont_apply_theme(cont_bright);
     menu_item_vertical(cont_bright);
 
     lv_obj_t * lbl_bright = lv_label_create(cont_bright);
     lv_label_set_text(lbl_bright, "Display Brightness");
     lv_obj_set_style_text_align(lbl_bright, LV_TEXT_ALIGN_CENTER, 0);
+    ui_cont_label_apply_theme(lbl_bright);
 
     lv_obj_t * slider_bright = lv_slider_create(cont_bright);
     lv_slider_set_range(slider_bright, 1, 100);
@@ -316,11 +358,13 @@ static lv_obj_t * create_options_page(lv_obj_t * menu)
 
     /* ---------- Volume ---------- */
     lv_obj_t * cont_vol = lv_menu_cont_create(section);
+    ui_cont_apply_theme(cont_vol);
     menu_item_vertical(cont_vol);
 
     lv_obj_t * lbl_vol = lv_label_create(cont_vol);
     lv_label_set_text(lbl_vol, "System Volume");
     lv_obj_set_style_text_align(lbl_vol, LV_TEXT_ALIGN_CENTER, 0);
+    ui_cont_label_apply_theme(lbl_vol);
 
     lv_obj_t * slider_vol = lv_slider_create(cont_vol);
     lv_slider_set_range(slider_vol, 0, 100);
@@ -354,6 +398,7 @@ void ui_bt_devices_updated(void)
             
         lv_obj_set_user_data(btn, (void *)i);
         lv_obj_add_event_cb(btn, device_selected_cb, LV_EVENT_CLICKED, NULL);
+        ui_list_item_apply_theme(btn);
     }
 }
 
@@ -363,12 +408,16 @@ static lv_obj_t * create_bt_page(lv_obj_t * menu)
     lv_obj_t * section = lv_menu_section_create(page);
 
     lv_obj_t * cont = lv_menu_cont_create(section);
-    lv_label_set_text(lv_label_create(cont), "Scan Devices");
+    ui_cont_apply_theme(cont);
+    lv_obj_t * label = lv_label_create(cont);
+    lv_label_set_text(label, "Scanning Devices:");
+    ui_cont_label_apply_theme(label);
 
     /* Dummy items (replace later with scan results) */
     bt_list = lv_list_create(page);
     lv_obj_set_size(bt_list, LV_PCT(100), LV_PCT(70));
     lv_obj_align(bt_list, LV_ALIGN_BOTTOM_MID, 0, -5);
+    ui_list_apply_theme(bt_list);
 
     return page;
 }
@@ -379,14 +428,23 @@ static lv_obj_t * create_wifi_page(lv_obj_t * menu)
     lv_obj_t * section = lv_menu_section_create(page);
 
     lv_obj_t * cont = lv_menu_cont_create(section);
-    lv_label_set_text(lv_label_create(cont), "Scan Networks");
+    ui_cont_apply_theme(cont);
+    
+    lv_obj_t * label = lv_label_create(cont);
+    lv_label_set_text(label, "Scan Networks");
+    ui_cont_label_apply_theme(label);    
 
     lv_obj_t * list = lv_list_create(page);
     lv_obj_set_size(list, LV_PCT(100), LV_PCT(70));
-    lv_obj_align(list, LV_ALIGN_BOTTOM_MID, 0, -5);
+    lv_obj_align(list, LV_ALIGN_CENTER, 0, 0);
+    ui_list_apply_theme(list);
 
-    lv_list_add_btn(list, LV_SYMBOL_WIFI, "Home_WiFi");
-    lv_list_add_btn(list, LV_SYMBOL_WIFI, "Office_AP");
+    lv_obj_t * btn;
+    btn = lv_list_add_btn(list, LV_SYMBOL_WIFI, "Home_WiFi");
+    ui_list_item_apply_theme(btn);
+
+    btn = lv_list_add_btn(list, LV_SYMBOL_WIFI, "Office_AP");
+    ui_list_item_apply_theme(btn);
 
     return page;
 }
@@ -469,7 +527,7 @@ void create_top_status_bar(lv_obj_t * parent)
     lv_obj_align(top_bar, LV_ALIGN_TOP_MID, 0, 0);
 
     lv_obj_clear_flag(top_bar, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_bg_color(top_bar, lv_color_hex(0x202020), 0);
+    lv_obj_set_style_bg_color(top_bar, lv_color_black(), 0);
     lv_obj_set_style_pad_hor(top_bar, 10, 0);
     lv_obj_set_style_pad_ver(top_bar, 4, 0);
 
@@ -504,7 +562,10 @@ void create_top_status_bar(lv_obj_t * parent)
 
 void audio_player_ui_init(lv_disp_t *disp)
 {
-    /* Create menu */
+    // Init ui theme
+    ui_theme_init();
+
+    // Create menu
     menu_scr = lv_display_get_screen_active(disp);
     menu = lv_menu_create(menu_scr);
     lv_obj_set_size(menu, LV_PCT(100), LV_PCT(100));
@@ -512,20 +573,22 @@ void audio_player_ui_init(lv_disp_t *disp)
     lv_obj_set_style_pad_top(menu, 36, 0);   // top bar height
     lv_obj_set_style_pad_bottom(menu, 60, 0); // bottom bar height
 
-    /* Create pages */
-    page_bt   = create_bt_page(menu);
-    page_wifi = create_wifi_page(menu);
-    page_home = create_home_page(menu);
-    page_options = create_options_page(menu);
-
-    /* Set root page */
-    lv_menu_set_page(menu, page_home);
+    // Apply menu background theme
+    lv_obj_add_style(menu, &style_menu_bg, 0);
 
     // Hide lv_menu main header
     lv_obj_set_height(lv_menu_get_main_header(menu), 0);
-    
-    // Nav bar
+
+    // Create pages
+    page_bt      = create_bt_page(menu);
+    page_wifi    = create_wifi_page(menu);
+    page_home    = create_home_page(menu);
+    page_options = create_options_page(menu);
+
+    // Set root page
+    lv_menu_set_page(menu, page_home);
+
+    // Nav bar + Status bar
     create_bottom_nav(menu_scr);
-    // Top Status bar
     create_top_status_bar(menu_scr);
 }

@@ -16,6 +16,16 @@ static FILE *audio_fp = NULL;
 static bool playing = false;
 static volatile bool stop_requested = false;
 
+void log_mem(const char *tag)
+{
+    ESP_LOGI(tag,
+        "Free heap: %u | Internal: %u | Largest block: %u",
+        esp_get_free_heap_size(),
+        heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+        heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)
+    );
+}
+
 void audio_player_init(void)
 {
     // Setup SD Card and File System
@@ -136,6 +146,7 @@ void audio_control_task(void *arg)
 
             case AUDIO_STATE_PLAYING:
                 {
+                    log_mem(TAG);
                     switch(cmd) {
                         case AUDIO_CMD_PAUSE:
                             audio_player_stop();

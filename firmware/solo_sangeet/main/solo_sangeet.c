@@ -239,7 +239,9 @@ void app_main(void)
 
     // Fill background with BLACK
     // lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex3(COLOR_CYAN), LV_PART_MAIN);
-    
+
+    log_mem(TAG);
+
     // UI Initialization 
     _lock_acquire(&lvgl_api_lock);
     // ui_touch_debug_init();
@@ -248,4 +250,5 @@ void app_main(void)
     
     // Start LVGL task
     xTaskCreatePinnedToCore(lvgl_task, "lvgl_task", 1024 * 32, NULL, configMAX_PRIORITIES - 1 , NULL, 1);
+    log_mem(TAG);
 }
