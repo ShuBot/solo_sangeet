@@ -491,7 +491,7 @@
       "gencad": "",
       "idf": "",
       "netlist": "",
-      "plot": "",
+      "plot": "gerber_rev_0/",
       "pos_files": "",
       "specctra_dsn": "",
       "step": "ss_pcb_rev1_0.step",
