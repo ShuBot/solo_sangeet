@@ -10,14 +10,12 @@ static lv_obj_t * menu;
 static lv_obj_t * menu_scr;
 static lv_obj_t * top_bar;
 static lv_obj_t * label_battery;
-static lv_obj_t * label_wifi;
 static lv_obj_t * label_bt;
 
 /* Pages */
 static lv_obj_t * page_home;
 static lv_obj_t * page_options;
 static lv_obj_t * page_bt;
-static lv_obj_t * page_wifi;
 static lv_obj_t * music_scr;
 
 // BT List
@@ -65,7 +63,8 @@ static void ui_cont_apply_theme(lv_obj_t * cont)
     // Border
     lv_obj_set_style_border_side(cont, LV_BORDER_SIDE_FULL, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(cont, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_color(cont, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+    // lv_obj_set_style_border_color(cont, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_color(cont, lv_color_hex(0xfacfff), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_opa(cont, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
 }
 
@@ -279,12 +278,6 @@ void ui_set_battery_level(uint8_t percent)
     }
 }
 
-void ui_set_wifi(bool connected)
-{
-    lv_label_set_text(label_wifi,
-        connected ? LV_SYMBOL_WIFI : LV_SYMBOL_CLOSE);
-}
-
 void ui_set_bt(bool connected)
 {
     lv_label_set_text(label_bt,
@@ -321,15 +314,6 @@ static lv_obj_t * create_home_page(lv_obj_t * menu)
     ui_cont_label_apply_theme(music_label);
     lv_obj_add_flag(cont_music, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(cont_music, music_open_cb, LV_EVENT_PRESSED, NULL);
-
-    /* WiFi */
-    lv_obj_t * cont_wifi = lv_menu_cont_create(section);
-    ui_cont_apply_theme(cont_wifi);
-    menu_item_make_touch_friendly(cont_wifi);
-    lv_obj_t * wifi_label = lv_label_create(cont_wifi);
-    lv_label_set_text(wifi_label, "WiFi     " LV_SYMBOL_WIFI);
-    ui_cont_label_apply_theme(wifi_label);
-    lv_menu_set_load_page_event(menu, cont_wifi, page_wifi);
 
     return page;
 }
@@ -422,34 +406,6 @@ static lv_obj_t * create_bt_page(lv_obj_t * menu)
     return page;
 }
 
-static lv_obj_t * create_wifi_page(lv_obj_t * menu)
-{
-    lv_obj_t * page = lv_menu_page_create(menu, "WiFi");
-    lv_obj_t * section = lv_menu_section_create(page);
-
-    lv_obj_t * cont = lv_menu_cont_create(section);
-    ui_cont_apply_theme(cont);
-    
-    lv_obj_t * label = lv_label_create(cont);
-    lv_label_set_text(label, "Scan Networks");
-    ui_cont_label_apply_theme(label);    
-
-    lv_obj_t * list = lv_list_create(page);
-    lv_obj_set_size(list, LV_PCT(100), LV_PCT(70));
-    lv_obj_align(list, LV_ALIGN_CENTER, 0, 0);
-    ui_list_apply_theme(list);
-
-    lv_obj_t * btn;
-    btn = lv_list_add_btn(list, LV_SYMBOL_WIFI, "Home_WiFi");
-    ui_list_item_apply_theme(btn);
-
-    btn = lv_list_add_btn(list, LV_SYMBOL_WIFI, "Office_AP");
-    ui_list_item_apply_theme(btn);
-
-    return page;
-}
-
-
 static void nav_back_cb(lv_event_t * e)
 {
     LV_UNUSED(e);
@@ -500,6 +456,8 @@ void create_bottom_nav(lv_obj_t * parent)
     lv_obj_t * btn_opt_label = lv_label_create(btn_opt);
     lv_label_set_text(btn_opt_label, " " LV_SYMBOL_SETTINGS " ");
     lv_obj_align_to(btn_opt_label, btn_opt, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_bg_color(btn_opt, lv_color_hex(0x5f006e), 0);
+    lv_obj_set_style_text_color(btn_opt_label, lv_color_hex(0xfacfff), 0);
 
     /* MENU (Home) */
     lv_obj_t * btn_menu = lv_btn_create(parent);
@@ -509,6 +467,8 @@ void create_bottom_nav(lv_obj_t * parent)
     lv_obj_t * btn_menu_label = lv_label_create(btn_menu);
     lv_label_set_text(btn_menu_label, " " LV_SYMBOL_HOME " ");
     lv_obj_align_to(btn_menu_label, btn_menu, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_bg_color(btn_menu, lv_color_hex(0x5f006e), 0);
+    lv_obj_set_style_text_color(btn_menu_label, lv_color_hex(0xfacfff), 0);
 
     /* BACK */
     lv_obj_t * btn_back = lv_btn_create(parent);
@@ -518,6 +478,8 @@ void create_bottom_nav(lv_obj_t * parent)
     lv_obj_t * btn_back_label = lv_label_create(btn_back);
     lv_label_set_text(btn_back_label, "  " LV_SYMBOL_LEFT " ");
     lv_obj_align_to(btn_back_label, btn_back, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_bg_color(btn_back, lv_color_hex(0x5f006e), 0);
+    lv_obj_set_style_text_color(btn_back_label, lv_color_hex(0xfacfff), 0);
 }
 
 void create_top_status_bar(lv_obj_t * parent)
@@ -527,7 +489,7 @@ void create_top_status_bar(lv_obj_t * parent)
     lv_obj_align(top_bar, LV_ALIGN_TOP_MID, 0, 0);
 
     lv_obj_clear_flag(top_bar, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_bg_color(top_bar, lv_color_black(), 0);
+    lv_obj_set_style_bg_color(top_bar, lv_color_hex(0x300036), 0);
     lv_obj_set_style_pad_hor(top_bar, 10, 0);
     lv_obj_set_style_pad_ver(top_bar, 4, 0);
 
@@ -546,12 +508,8 @@ void create_top_status_bar(lv_obj_t * parent)
     lv_obj_set_style_bg_opa(left, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(left, 0, 0);
 
-    label_wifi = lv_label_create(top_bar);
-    lv_label_set_text(label_wifi, LV_SYMBOL_WIFI);
-    lv_obj_set_style_text_color(label_wifi, lv_color_white(), 0);
-
     label_bt = lv_label_create(top_bar);
-    lv_label_set_text(label_bt, LV_SYMBOL_CLOSE);
+    lv_label_set_text(label_bt, LV_SYMBOL_BLUETOOTH);
     lv_obj_set_style_text_color(label_bt, lv_color_white(), 0);
 
     /* RIGHT: Battery */
@@ -581,7 +539,6 @@ void audio_player_ui_init(lv_disp_t *disp)
 
     // Create pages
     page_bt      = create_bt_page(menu);
-    page_wifi    = create_wifi_page(menu);
     page_home    = create_home_page(menu);
     page_options = create_options_page(menu);
 

@@ -318,13 +318,13 @@ static lv_obj_t * create_home_page(lv_obj_t * menu)
     lv_obj_add_event_cb(cont_music, music_open_cb, LV_EVENT_PRESSED, NULL);
 
     /* WiFi */
-    lv_obj_t * cont_wifi = lv_menu_cont_create(section);
-    ui_cont_apply_theme(cont_wifi);
-    menu_item_make_touch_friendly(cont_wifi);
-    lv_obj_t * wifi_label = lv_label_create(cont_wifi);
-    lv_label_set_text(wifi_label, "WiFi     " LV_SYMBOL_WIFI);
-    ui_cont_label_apply_theme(wifi_label);
-    lv_menu_set_load_page_event(menu, cont_wifi, page_wifi);
+    // lv_obj_t * cont_wifi = lv_menu_cont_create(section);
+    // ui_cont_apply_theme(cont_wifi);
+    // menu_item_make_touch_friendly(cont_wifi);
+    // lv_obj_t * wifi_label = lv_label_create(cont_wifi);
+    // lv_label_set_text(wifi_label, "WiFi     " LV_SYMBOL_WIFI);
+    // ui_cont_label_apply_theme(wifi_label);
+    // lv_menu_set_load_page_event(menu, cont_wifi, page_wifi);
 
     return page;
 }
@@ -571,7 +571,7 @@ void lvgl_live_preview_init(void)
 
     // Create pages
     page_bt      = create_bt_page(menu);
-    page_wifi    = create_wifi_page(menu);
+    // page_wifi    = create_wifi_page(menu);
     page_home    = create_home_page(menu);
     page_options = create_options_page(menu);
 
