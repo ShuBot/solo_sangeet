@@ -9,7 +9,7 @@
 
 static uint16_t *dma_fill_buf = NULL;
 
-int init_brightness = 80; // Default brightness percentage
+int init_brightness = 40; // Default brightness percentage
 
 spi_device_handle_t ili9341_spi;
 
@@ -18,7 +18,7 @@ void ili9341_alloc_dma_buffers(void)
     dma_fill_buf = heap_caps_malloc(
         ILI9341_DMA_FILL_PIXELS * sizeof(uint16_t),
         MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL
-    );
+    );  
 
     assert(dma_fill_buf != NULL);
 }
@@ -30,7 +30,7 @@ void ili9341_spi_config() {
         .sclk_io_num = ILI9341_PIN_SCLK,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
-        .max_transfer_sz = 4096
+        .max_transfer_sz = SPI_MAX_CHUNK_PIXELS
     };
 
     // LCD Display SPI device configuration
@@ -38,8 +38,10 @@ void ili9341_spi_config() {
         .clock_speed_hz = SPI_FREQUENCY,    // 40 / 15.99 MHz
         .mode = 0,                          // SPI mode 0
         .spics_io_num = ILI9341_PIN_CS,
-        .queue_size = 1,
+        .queue_size = SPI_QUEUE_SIZE,
         .flags = SPI_DEVICE_HALFDUPLEX,
+        // .pre_cb = ili9341_pre_spi_cb,
+        // .post_cb = ili9341_post_spi_cb,
     };
     
     // Initialize SPI bus
@@ -477,4 +479,60 @@ void ili9341_flush_spi_dma(int x1, int y1, int x2, int y2, uint8_t * px_map)
     esp_err_t ret = spi_device_transmit(ili9341_spi, &t);
     assert(ret == ESP_OK);
 
-}   
+}
+
+// Using non-blocking DMA with multiple transactions in flight for maximum throughput. 
+// This is more complex but can achieve much higher FPS for large updates.
+// TODO: R&D, and Update to integrate with LVGL better.
+
+static spi_transaction_t trans_pool[SPI_MAX_TRANS_IN_FLIGHT];
+
+void ili9341_flush_spi_dma_async(int x1, int y1, int x2, int y2, uint8_t * px_map)
+{
+    int32_t w = x2 - x1 + 1;
+    int32_t h = y2 - y1 + 1;
+
+    uint16_t *buf16 = (uint16_t *)px_map;
+
+    ili9341_set_address_window(x1, y1, x2, y2);
+
+    gpio_set_level(ILI9341_PIN_DC, 1);
+
+    int total_pixels = w * h;
+    int offset = 0;
+    int trans_idx = 0;
+
+    while (offset < total_pixels) {
+
+        int chunk_pixels = (total_pixels - offset > SPI_MAX_CHUNK_PIXELS)
+                           ? SPI_MAX_CHUNK_PIXELS
+                           : (total_pixels - offset);
+
+        spi_transaction_t *t = &trans_pool[trans_idx];
+        memset(t, 0, sizeof(spi_transaction_t));
+
+        t->length = chunk_pixels * 2 * 8;
+        t->tx_buffer = &buf16[offset];
+        t->user = NULL;
+
+        esp_err_t ret = spi_device_queue_trans(ili9341_spi, t, portMAX_DELAY);
+        assert(ret == ESP_OK);
+
+        offset += chunk_pixels;
+        trans_idx++;
+
+        // Limit number of in-flight transactions
+        if (trans_idx >= SPI_MAX_TRANS_IN_FLIGHT) {
+            spi_transaction_t *rtrans;
+            spi_device_get_trans_result(ili9341_spi, &rtrans, portMAX_DELAY);
+            trans_idx--;
+        }
+    }
+
+    // Wait for remaining transactions
+    while (trans_idx > 0) {
+        spi_transaction_t *rtrans;
+        spi_device_get_trans_result(ili9341_spi, &rtrans, portMAX_DELAY);
+        trans_idx--;
+    }
+}

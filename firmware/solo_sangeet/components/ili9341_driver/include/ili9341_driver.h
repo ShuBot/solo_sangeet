@@ -25,7 +25,10 @@ extern spi_device_handle_t ili9341_spi;
 /*
     SPI Settings
 */
-#define SPI_FREQUENCY  40 * 1000 * 1000
+#define SPI_FREQUENCY               40 * 1000 * 1000    // 40 MHz
+#define SPI_QUEUE_SIZE              10
+#define SPI_MAX_CHUNK_PIXELS        4096
+#define SPI_MAX_TRANS_IN_FLIGHT     4
 
 /*
 * Display dimensions
@@ -218,5 +221,6 @@ void ili9341_fill_screen_white(ili9341_rotation_t rotation);
 void ili9341_fill_rect_dma(ili9341_rotation_t rotation, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color);
 void ili9341_flush_spi(int x1, int y1, int x2, int y2, uint8_t * px_map);
 void ili9341_flush_spi_dma(int x1, int y1, int x2, int y2, uint8_t * px_map);
+void ili9341_flush_spi_dma_async(int x1, int y1, int x2, int y2, uint8_t * px_map);
 
 #endif // ILI9341_DRIVER_H
