@@ -2,6 +2,9 @@
 #include "xpt2046_touch_driver.h"
 #include <stdio.h>
 #include <string.h>
+#include "esp_heap_caps.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #define MAIN_SPI_HOST SPI2_HOST
 

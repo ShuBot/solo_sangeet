@@ -746,9 +746,9 @@ static void bt_app_av_state_connected_hdlr(uint16_t event, void *param)
             s_pkt_cnt = 0;
             ESP_LOGI("BT", "A2DP streaming started");
         }
-        else if (a2d->audio_stat.state == ESP_A2D_AUDIO_STATE_STOPPED) {
-            ESP_LOGI("BT", "A2DP streaming stopped");
-        }
+        // else if (a2d->audio_stat.state == ESP_A2D_AUDIO_STATE_STOPPED) {
+        //     ESP_LOGI("BT", "A2DP streaming stopped");
+        // }
         break;
     }
     case ESP_A2D_AUDIO_CFG_EVT:

@@ -1,5 +1,7 @@
 #include "st7735_driver.h"
 #include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 spi_device_handle_t st7735_spi;
 

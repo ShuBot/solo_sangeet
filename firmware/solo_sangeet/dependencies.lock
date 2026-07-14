@@ -2,11 +2,11 @@ dependencies:
   idf:
     source:
       type: idf
-    version: 5.5.1
+    version: 6.0.2
   lvgl:
     dependencies: []
     source:
-      path: /home/shubham/Projects/solo_sangeet/firmware/solo_sangeet/components/lvgl
+      path: components/lvgl
       type: local
     version: 9.3.0
 direct_dependencies:
@@ -14,4 +14,4 @@ direct_dependencies:
 - lvgl/lvgl
 manifest_hash: 1e2c958f813219a47cd2a7919f0e4ecb6ee51f4cc6933189563ad29fd334e270
 target: esp32
-version: 2.0.0
+version: 3.0.0
