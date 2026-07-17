@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../../../esp/esp-idf/components"
+		},
+		{
+			"path": "../../../../esp/esp-idf/examples"
+		}
+	]
+}

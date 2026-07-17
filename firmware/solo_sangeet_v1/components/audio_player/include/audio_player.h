@@ -1,0 +1,58 @@
+#ifndef AUDIO_PLAYER_H
+#define AUDIO_PLAYER_H
+
+#pragma once
+
+#include <stdbool.h>
+#include "freertos/FreeRTOS.h"
+#include "esp_log.h"
+#include "freertos/task.h"
+#include "freertos/ringbuf.h"
+#include "freertos/event_groups.h"
+#include "lvgl.h"
+
+extern EventGroupHandle_t audio_evt_grp;
+
+#define EVT_A2DP_STREAMING   (1 << 0)
+#define EVT_USER_PLAY       (1 << 1)
+#define EVT_AUDIO_PLAYING   (1 << 2)
+
+#define AUDIO_RINGBUF_SIZE   (32 * 1024)   // or even 64 KB
+#define AUDIO_READ_CHUNK    (2048)         // or 4096
+#define WAV_HEADER_SIZE    44
+
+extern RingbufHandle_t audio_rb;
+extern QueueHandle_t audio_cmd_q;
+extern const char *current_file;
+
+// Audio Player Commands
+typedef enum {
+    AUDIO_CMD_NONE = 0,
+    AUDIO_CMD_PLAY,
+    AUDIO_CMD_PAUSE,
+    AUDIO_CMD_STOP,
+    AUDIO_CMD_EOF,
+    AUDIO_CMD_BT_CONNECTED,
+    AUDIO_CMD_BT_DISCONNECTED,
+} audio_cmd_t;
+
+// Audio Player States
+typedef enum {
+    AUDIO_STATE_IDLE,
+    AUDIO_STATE_PLAYING,
+    AUDIO_STATE_PAUSED,
+    AUDIO_STATE_STOPPED,
+} audio_state_t;
+
+void log_mem(const char *tag);
+
+void audio_player_init(void);
+bool audio_player_start(const char *path);
+void audio_player_stop(void);
+bool audio_player_is_playing(void);
+
+// int32_t audio_player_read(uint8_t *data, int32_t len);
+void audio_reader_task(void *arg);
+void audio_control_task(void *arg);
+
+#endif // AUDIO_PLAYER_H
